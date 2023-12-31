@@ -1,8 +1,23 @@
-/*
+/* * Hide the metadata that is empty */
+.metadata-property:has(.metadata-property-value .mod-truncate:empty),
+.metadata-property:has(
+		.metadata-property-value
+			input.metadata-input[type="number"]:placeholder-shown
+	),
+.metadata-property[data-property-type="text"]:has(input[type="date"]),
+.metadata-property:has(
+		.metadata-property-value
+			.multi-select-container
+			> .multi-select-input:first-child
+	) {
+	display: none;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
-
-If your plugin does not need CSS, delete this file.
-
-*/
+/* * visualize the last metadata property.
+   * Make sure to enable Button: add document attribution */
+div.view-content
+	div.metadata-content
+	> div.metadata-properties
+	> div.metadata-property:last-child {
+	display: flex;
+}
