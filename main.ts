@@ -60,7 +60,7 @@ async function genSnippetCSS(plugin: MetadataHider) {
 	content.push(genCSS(plugin.settings.propertiesVisible, '/* * Custom: Force visible */', ' { display: flex !important; }'))
 
 	const vault = plugin.app.vault;
-	const ob_config_path = vault.configDir ?? ".obsidian";
+	const ob_config_path = vault.configDir;
 	const snippets_path = ob_config_path + "/snippets";
 	await vault.adapter.mkdir(snippets_path);
 	const css_filename = "metadata-hider-auto-gen"
