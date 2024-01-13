@@ -1,7 +1,5 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
-
 interface MetadataHiderSettings {
 	enableSnippet: boolean;
 	propertiesVisible: string;
@@ -62,9 +60,9 @@ async function genSnippetCSS(plugin: MetadataHider) {
 	const vault = plugin.app.vault;
 	const ob_config_path = vault.configDir;
 	const snippets_path = ob_config_path + "/snippets";
-	await vault.adapter.mkdir(snippets_path);
 	const css_filename = "metadata-hider-auto-gen"
 	const path = `${snippets_path}/${css_filename}.css`;
+	if (!(await vault.adapter.exists(snippets_path))) { await vault.adapter.mkdir(snippets_path); }
 	if (await vault.adapter.exists(path)) { await vault.adapter.remove(path) }
 	await plugin.app.vault.create(path, content.join('\n'));
 
@@ -102,7 +100,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Enable Snippet')
+			.setName('Enable snippet')
 			.setDesc('')
 			.addToggle((toggle) => {
 				toggle
