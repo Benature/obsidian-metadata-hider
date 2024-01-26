@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.0.4
+- [update] setting: whether to hide empty metadata in sidebar.
+
 ## 0.0.3
 - [fix] allow all metadata shown in side leaf.
 
