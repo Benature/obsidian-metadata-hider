@@ -1,19 +1,20 @@
 # Metadata Hider
 
+[Click to install](https://obsidian.md/plugins?id=metadata-hider)
+
 Hide metadata property if its value is empty.
 
 This plugin will automatically generate a css file in `./obsidian/snippets`, which helps you to hide specific metadata properties.
 
-## Settings
+## Usage
 
-- Enable Snippet
-- Always display metadata properties
-- Always hide metadata properties
-
+Open `Settings` > `Plugins` > `Metadata Hider` to set which metadata properties to hide or always show.
 
 ## Install
 
-This plugin is in the progress of plugin community release.
+## Install from community plugins
+
+[Click to install](https://obsidian.md/plugins?id=metadata-hider)
 
 ### Install by [BRAT Plugin](https://obsidian.md/plugins?id=obsidian42-brat)
 
