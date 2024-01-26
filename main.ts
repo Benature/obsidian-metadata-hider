@@ -36,10 +36,10 @@ export default class MetadataHider extends Plugin {
 
 }
 
-function genCSS(properties: string, cssPrefix: string, cssSuffix: string): string {
+function genCSS(properties: string, cssPrefix: string, cssSuffix: string, parentSelector: string = ""): string {
 	let body: string[] = [];
 	for (let property of properties.split(',')) {
-		body.push(`.metadata-property[data-property-key="${property.trim()}"]`);
+		body.push(`${parentSelector} .metadata-property[data-property-key="${property.trim()}"]`);
 	}
 	return cssPrefix + '\n' + body.join(', \n') + "\n" + cssSuffix + "\n\n";
 }
@@ -53,9 +53,10 @@ async function genSnippetCSS(plugin: MetadataHider) {
 		"",
 	];
 
-
-	content.push(genCSS(plugin.settings.propertiesInvisible, '/* * Custom: Force invisible */', ' { display: none !important; }'))
-	content.push(genCSS(plugin.settings.propertiesVisible, '/* * Custom: Force visible */', ' { display: flex !important; }'))
+	content.push(genCSS(plugin.settings.propertiesInvisible, '/* * Custom: Force invisible */',
+		' { display: none !important; }', '.mod-root'))
+	content.push(genCSS(plugin.settings.propertiesVisible, '/* * Custom: Force visible */',
+		' { display: flex !important; }'))
 
 	const vault = plugin.app.vault;
 	const ob_config_path = vault.configDir;
