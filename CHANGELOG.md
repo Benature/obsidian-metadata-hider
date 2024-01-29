@@ -1,7 +1,12 @@
 # Changelog
 
+## 0.0.5
+- [fix] case when setting text is empty
+- [updated] Chinese language support
+- [feature] hide the whole metadata table
+
 ## 0.0.4
-- [update] setting: whether to hide empty metadata in sidebar.
+- [updated] setting: whether to hide empty metadata in sidebar.
 
 ## 0.0.3
 - [fix] allow all metadata shown in side leaf.

@@ -4,12 +4,14 @@ interface MetadataHiderSettings {
 	hideEmptyEntryInSiderbar: boolean;
 	propertiesVisible: string;
 	propertiesInvisible: string;
+	propertyHideAll: string;
 }
 
 const DEFAULT_SETTINGS: MetadataHiderSettings = {
 	hideEmptyEntryInSiderbar: false,
 	propertiesVisible: "",
 	propertiesInvisible: "",
+	propertyHideAll: "hide",
 }
 
 export default class MetadataHider extends Plugin {
@@ -37,9 +39,13 @@ export default class MetadataHider extends Plugin {
 }
 
 function genCSS(properties: string, cssPrefix: string, cssSuffix: string, parentSelector: string = ""): string {
+	if (properties.trim() === "") {
+		return ``;
+	}
 	let body: string[] = [];
+	parentSelector = parentSelector ? parentSelector + " " : "";
 	for (let property of properties.split(',')) {
-		body.push(`${parentSelector} .metadata-property[data-property-key="${property.trim()}"]`);
+		body.push(`${parentSelector} .metadata-container > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${property.trim()}"]`);
 	}
 	return cssPrefix + '\n' + body.join(', \n') + "\n" + cssSuffix + "\n\n";
 }
@@ -69,19 +75,32 @@ async function genSnippetCSS(plugin: MetadataHider) {
 		`}`,
 		/* * visualize the last metadata property.`
 		 * Make sure to enable Button: add document attribution */
-		`div.view-content`,
+		`${mod_root}div.view-content`,
 		`	div.metadata-content`,
 		`	> div.metadata-properties`,
 		`	> div.metadata-property:last-child {`,
 		`	display: flex;`,
 		`}`,
+		``,
 	];
 
 
+	if (s.propertyHideAll.trim()) {
+		content.push([
+			`${mod_root}.metadata-container:has(`,
+			`	.metadata-property[data-property-key="${s.propertyHideAll.trim()}"] input[type="checkbox"]:checked`,
+			`  ) {`,
+			`  display: none;`,
+			`}`,
+			``,
+		].join('\n'));
+	}
+
+
 	content.push(genCSS(plugin.settings.propertiesInvisible, '/* * Custom: Force invisible */',
-		' { display: none !important; }', '.mod-root'))
+		' { display: none; }', '.mod-root'))
 	content.push(genCSS(plugin.settings.propertiesVisible, '/* * Custom: Force visible */',
-		' { display: flex !important; }'))
+		' { display: flex; }',))
 
 	const vault = plugin.app.vault;
 	const ob_config_path = vault.configDir;
@@ -120,13 +139,20 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		await genSnippetCSS(this.plugin);
 	}
 
+	getLang(): string {
+		let lang = window.localStorage.getItem('language');
+		if (lang == null || ["en", "zh", "zh-TW"].indexOf(lang) == -1) { lang = "en"; }
+		return lang;
+	}
+
 	display(): void {
 		const { containerEl } = this;
+		const lang = this.getLang();
 
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Hide empty metadata properties also in sidebar')
+			.setName({ en: 'Hide empty metadata properties also in sidebar', zh: "侧边栏也隐藏值为空的文档属性（元数据）", "zh-TW": "側邊欄也隱藏空白文件屬性（元數據）" }[lang] as string)
 			.setDesc('')
 			.addToggle((toggle) => {
 				toggle
@@ -139,8 +165,8 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Always display metadata properties")
-			.setDesc("seperated by comma (`,`)")
+			.setName({ en: "Always display metadata properties", zh: "永远显示的文档属性（元数据）", "zh-TW": "永遠顯示的文件屬性（元數據）" }[lang] as string)
+			.setDesc({ en: "separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
 			.addTextArea((text) =>
 				text
 					.setValue(this.plugin.settings.propertiesVisible)
@@ -151,8 +177,8 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 					})
 			);
 		new Setting(containerEl)
-			.setName("Always hide metadata properties")
-			.setDesc("seperated by comma (`,`)")
+			.setName({ en: "Always hide metadata properties", zh: "永远隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
+			.setDesc({ en: "separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
 			.addTextArea((text) =>
 				text
 					.setValue(this.plugin.settings.propertiesInvisible)
@@ -162,8 +188,26 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 						await genSnippetCSS(this.plugin);
 					})
 			);
+		new Setting(containerEl)
+			.setName({ en: "Hide the whole metadata properties table", zh: "隐藏整个文档属性（元数据）表格", "zh-TW": "隱藏整個文檔屬性（元數據）表格" }[lang] as string)
+			.setDesc({ en: `when its value is true`, zh: `当该属性值为真时`, "zh-TW": `當該屬性值為真時` }[lang] as string)
+			.addSearch((cb) => {
+				cb.setPlaceholder({ en: "entry name", zh: "文档属性名称", "zh-TW": "文件屬性名稱", }[lang] as string)
+					.setValue(this.plugin.settings.propertyHideAll)
+					.onChange(async (newValue) => {
+						this.plugin.settings.propertyHideAll = newValue;
+						await this.plugin.saveSettings();
+					});
+			})
 
-		let noteEl = containerEl.createEl("p", { text: `Note: the last metadata property will always be visible, in order to ensure the normal usage of "Add property".` }); //, even if it is hidden by the above settings.
+
+		let noteEl = containerEl.createEl("p", {
+			text: {
+				en: `Note: the last metadata property will always be visible, in order to ensure the normal usage of "Add property".`,
+				zh: `注意：最后一个文档属性将始终可见，以确保正常使用“添加文档属性”。`,
+				"zh-TW": `注意：最後一個文档屬性將始終可見，以確保正常使用「添加文档屬性」。`,
+			}[lang] as string
+		}); //, even if it is hidden by the above settings.
 		noteEl.setAttribute("style", "color: gray; font-style: italic; margin-top: 30px;")
 	}
 }
