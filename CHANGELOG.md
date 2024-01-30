@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.0.6
+- [fix] bug: always show when sidebar is false
+
 ## 0.0.5
 - [fix] case when setting text is empty
 - [updated] Chinese language support

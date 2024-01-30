@@ -98,9 +98,9 @@ async function genSnippetCSS(plugin: MetadataHider) {
 
 
 	content.push(genCSS(plugin.settings.propertiesInvisible, '/* * Custom: Force invisible */',
-		' { display: none; }', '.mod-root'))
+		' { display: none; }', mod_root))
 	content.push(genCSS(plugin.settings.propertiesVisible, '/* * Custom: Force visible */',
-		' { display: flex; }',))
+		' { display: flex; }', mod_root))
 
 	const vault = plugin.app.vault;
 	const ob_config_path = vault.configDir;
