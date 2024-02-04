@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.0.7
+- [updated] directly write to document, rather than to snippet file.
+
 ## 0.0.6
 - [fix] bug: always show when sidebar is false
 
