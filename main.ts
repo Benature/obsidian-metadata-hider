@@ -26,7 +26,7 @@ export default class MetadataHider extends Plugin {
 	}
 
 	onunload() {
-
+		this.styleTag.remove();
 	}
 
 	debounceUpdateCSS = debounce(this.updateCSS, 1000, true);

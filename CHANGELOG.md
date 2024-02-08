@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.0.8
+- [fix] `onunload`: remove style tag
+
 ## 0.0.7
 - [updated] directly write to document, rather than to snippet file.
 
