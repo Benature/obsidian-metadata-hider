@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0
+- [feature] display all metadata properties when the metadata properties is focused.
+- [updated] ignore `\n` in settings.
+
 ## 0.0.8
 - [fix] `onunload`: remove style tag
 
