@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.1
+- [fix] #3
+
 ## 0.1.0
 - [feature] display all metadata properties when the metadata properties is focused.
 - [updated] ignore `\n` in settings.

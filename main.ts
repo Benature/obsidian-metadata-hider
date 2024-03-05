@@ -1,7 +1,7 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce } from 'obsidian';
 
 interface MetadataHiderSettings {
-	hideEmptyEntryInSiderbar: boolean;
+	hideEmptyEntryInSideDock: boolean;
 	propertiesVisible: string;
 	propertiesInvisible: string;
 	propertiesInvisibleAlways: string;
@@ -9,7 +9,7 @@ interface MetadataHiderSettings {
 }
 
 const DEFAULT_SETTINGS: MetadataHiderSettings = {
-	hideEmptyEntryInSiderbar: false,
+	hideEmptyEntryInSideDock: false,
 	propertiesVisible: "",
 	propertiesInvisible: "",
 	propertiesInvisibleAlways: "",
@@ -72,11 +72,9 @@ export default class MetadataHider extends Plugin {
 		const parentElement = this.styleTag.parentElement;
 		if (parentElement) {
 			parentElement.removeChild(this.styleTag);
-			console.log('Style element removed successfully.');
 		} else {
 			console.error('Parent element not found.');
 		}
-		// this.styleTag.remove();
 	}
 
 	debounceUpdateCSS = debounce(this.updateCSS, 1000, true);
@@ -113,7 +111,7 @@ function genCSS(properties: string, cssPrefix: string, cssSuffix: string, parent
 	}
 	let body: string[] = [];
 	parentSelector = parentSelector ? parentSelector + " " : "";
-	properties = properties.replace(/\n/g, "");
+	properties = properties.replace(/\n|^\s*,|,\s*$/g, "").replace(/,,+/g, ",");
 	for (let property of properties.split(',')) {
 		body.push(`${parentSelector}.metadata-container > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${property.trim()}"]`);
 	}
@@ -123,32 +121,37 @@ function genCSS(properties: string, cssPrefix: string, cssSuffix: string, parent
 
 function genAllCSS(plugin: MetadataHider): string {
 	const s = plugin.settings;
-	const mod_root = s.hideEmptyEntryInSiderbar ? "" : ".mod-root  ";
 	const content: string[] = [
+		// Show all metadata when it is focused
 		`.metadata-container.is-active .metadata-property { display: flex !important; }`,
 		/* * Hide the metadata that is empty */
-		`${mod_root}.metadata-property:has(.metadata-property-value .mod-truncate:empty),`,
-		`${mod_root}.metadata-property:has(.metadata-property-value input.metadata-input[type="number"]:placeholder-shown),`,
-		`${mod_root}.metadata-property[data-property-type="text"]:has(input[type="date"]),`,
-		`${mod_root}.metadata-property:has(.metadata-property-value .multi-select-container > .multi-select-input:first-child) {`,
+		`.metadata-property:has(.metadata-property-value .mod-truncate:empty),`,
+		`.metadata-property:has(.metadata-property-value input.metadata-input[type="number"]:placeholder-shown),`,
+		`.metadata-property[data-property-type="text"]:has(input[type="date"]),`,
+		`.metadata-property:has(.metadata-property-value .multi-select-container > .multi-select-input:first-child) {`,
 		`	display: none;`,
 		`}`,
 	];
 
+	if (!s.hideEmptyEntryInSideDock) {
+		content.push(`.mod-sidedock .metadata-property { display: flex !important; }`,)
+	}
 
 	if (s.propertyHideAll.trim()) {
 		content.push([
-			`${mod_root}.metadata-container:has(.metadata-property[data-property-key="${s.propertyHideAll.trim()}"] input[type="checkbox"]:checked) {`,
+			`.metadata-container:has(.metadata-property[data-property-key="${s.propertyHideAll.trim()}"] input[type="checkbox"]:checked) {`,
 			`  display: none;`,
 			`}`,
 			``,
 		].join('\n'));
 	}
 
-	content.push(genCSS(plugin.settings.propertiesInvisible, '/* * Custom: Force invisible */',
-		' { display: none; }', mod_root))
+	content.push(genCSS(plugin.settings.propertiesInvisible + "," + plugin.settings.propertiesInvisibleAlways, '/* * Custom: invisible */',
+		' { display: none; }'))
+	content.push(genCSS(plugin.settings.propertiesInvisibleAlways, '/* * Custom: always invisible */',
+		' { display: none !important; }', ".workspace-split:not(.mod-sidedock) "))
 	content.push(genCSS(plugin.settings.propertiesVisible, '/* * Custom: Force visible */',
-		' { display: flex; }', mod_root))
+		' { display: flex; }'))
 
 	return content.join(' ')
 }
@@ -175,13 +178,13 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName({ en: 'Hide empty metadata properties also in sidebar', zh: "侧边栏也隐藏值为空的文档属性（元数据）", "zh-TW": "側邊欄也隱藏空白文件屬性（元數據）" }[lang] as string)
+			.setName({ en: 'Hide empty metadata properties also in side dock', zh: "侧边栏也隐藏值为空的文档属性（元数据）", "zh-TW": "側邊欄也隱藏空白文件屬性（元數據）" }[lang] as string)
 			.setDesc('')
 			.addToggle((toggle) => {
 				toggle
-					.setValue(this.plugin.settings.hideEmptyEntryInSiderbar)
+					.setValue(this.plugin.settings.hideEmptyEntryInSideDock)
 					.onChange(async (value) => {
-						this.plugin.settings.hideEmptyEntryInSiderbar = value;
+						this.plugin.settings.hideEmptyEntryInSideDock = value;
 						await this.plugin.saveSettings();
 						this.plugin.debounceUpdateCSS();
 					});
