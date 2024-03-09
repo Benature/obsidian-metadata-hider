@@ -24,18 +24,17 @@ export default class MetadataHider extends Plugin {
 
 
 	async onload() {
-		console.log("metadata hider onload")
 		await this.loadSettings();
 		this.addSettingTab(new MetadataHiderSettingTab(this.app, this));
 		this.updateCSS();
 
 		this.registerDomEvent(document, 'focusin', (evt: MouseEvent) => {
-			console.log('focusin', evt);
+			// console.log('focusin', evt);
 			const target = evt.target;
 			const metadataElement = document.querySelector('.workspace-leaf.mod-active .metadata-container');
 			if (metadataElement === null) { return; }
 			if (metadataElement?.contains(target as Node)) {
-				console.log(target)
+				// console.log(target)
 				metadataElement.classList.add('is-active');
 				this.isMetadataFocused = true;
 				// @ts-ignore
@@ -53,7 +52,7 @@ export default class MetadataHider extends Plugin {
 			}
 		});
 		this.registerDomEvent(document, 'focusout', (evt: MouseEvent) => {
-			console.log('focusout', evt);
+			// console.log('focusout', evt);
 			const target = evt.target;
 			const metadataElement = document.querySelector('.workspace-leaf.mod-active .metadata-container');
 			if (metadataElement?.contains(target as Node)) {
@@ -81,7 +80,7 @@ export default class MetadataHider extends Plugin {
 	updateCSS() {
 		this.styleTag = document.createElement('style');
 		this.styleTag.id = 'css-metadata-hider';
-		console.log(document.getElementsByTagName('head'))
+		// console.log(document.getElementsByTagName('head'))
 		let headElement: HTMLElement = document.getElementsByTagName('head')[0];
 		const existingStyleTag = headElement.querySelector('#' + this.styleTag.id) as HTMLStyleElement | null;
 

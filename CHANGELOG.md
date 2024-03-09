@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.2
+- [fix] verbose console
+
 ## 0.1.1
 - [fix] #3
 
