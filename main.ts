@@ -1,6 +1,7 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce } from 'obsidian';
 
 interface MetadataHiderSettings {
+	hideEmptyEntry: boolean;
 	hideEmptyEntryInSideDock: boolean;
 	propertiesVisible: string;
 	propertiesInvisible: string;
@@ -9,6 +10,7 @@ interface MetadataHiderSettings {
 }
 
 const DEFAULT_SETTINGS: MetadataHiderSettings = {
+	hideEmptyEntry: true,
 	hideEmptyEntryInSideDock: false,
 	propertiesVisible: "",
 	propertiesInvisible: "",
@@ -120,17 +122,21 @@ function genCSS(properties: string, cssPrefix: string, cssSuffix: string, parent
 
 function genAllCSS(plugin: MetadataHider): string {
 	const s = plugin.settings;
-	const content: string[] = [
-		// Show all metadata when it is focused
-		`.metadata-container.is-active .metadata-property { display: flex !important; }`,
-		/* * Hide the metadata that is empty */
-		`.metadata-property:has(.metadata-property-value .mod-truncate:empty),`,
-		`.metadata-property:has(.metadata-property-value input.metadata-input[type="number"]:placeholder-shown),`,
-		`.metadata-property[data-property-type="text"]:has(input[type="date"]),`,
-		`.metadata-property:has(.metadata-property-value .multi-select-container > .multi-select-input:first-child) {`,
-		`	display: none;`,
-		`}`,
-	];
+	let content: string[] = [];
+	if (s.hideEmptyEntry) {
+		content = content.concat([
+			// Show all metadata when it is focused
+			`.metadata-container.is-active .metadata-property { display: flex !important; }`,
+			/* * Hide the metadata that is empty */
+			`.metadata-property:has(.metadata-property-value .mod-truncate:empty),`,
+			`.metadata-property:has(.metadata-property-value input.metadata-input[type="number"]:placeholder-shown),`,
+			`.metadata-property[data-property-type="text"]:has(input[type="date"]),`,
+			`.metadata-property:has(.metadata-property-value .multi-select-container > .multi-select-input:first-child) {`,
+			`	display: none;`,
+			`}`,
+		]);
+	}
+
 
 	if (!s.hideEmptyEntryInSideDock) {
 		content.push(`.mod-sidedock .metadata-property { display: flex !important; }`,)
@@ -177,17 +183,33 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName({ en: 'Hide empty metadata properties also in side dock', zh: "侧边栏也隐藏值为空的文档属性（元数据）", "zh-TW": "側邊欄也隱藏空白文件屬性（元數據）" }[lang] as string)
+			.setName({ en: 'Hide empty metadata properties', zh: "隐藏值为空的文档属性（元数据）", "zh-TW": "隱藏空白文件屬性（元數據）" }[lang] as string)
 			.setDesc('')
 			.addToggle((toggle) => {
 				toggle
-					.setValue(this.plugin.settings.hideEmptyEntryInSideDock)
+					.setValue(this.plugin.settings.hideEmptyEntry)
 					.onChange(async (value) => {
-						this.plugin.settings.hideEmptyEntryInSideDock = value;
+						this.plugin.settings.hideEmptyEntry = value;
 						await this.plugin.saveSettings();
 						this.plugin.debounceUpdateCSS();
+						this.display();
 					});
 			});
+		if (this.plugin.settings.hideEmptyEntry) {
+			new Setting(containerEl)
+				.setName({ en: 'Hide empty metadata properties also in side dock', zh: "侧边栏也隐藏值为空的文档属性（元数据）", "zh-TW": "側邊欄也隱藏空白文件屬性（元數據）" }[lang] as string)
+				.setDesc('')
+				.addToggle((toggle) => {
+					toggle
+						.setValue(this.plugin.settings.hideEmptyEntryInSideDock)
+						.onChange(async (value) => {
+							this.plugin.settings.hideEmptyEntryInSideDock = value;
+							await this.plugin.saveSettings();
+							this.plugin.debounceUpdateCSS();
+						});
+				});
+		}
+
 
 		new Setting(containerEl)
 			.setName({ en: "Metadata properties that keep displaying", zh: "永远显示的文档属性（元数据）", "zh-TW": "永遠顯示的文件屬性（元數據）" }[lang] as string)

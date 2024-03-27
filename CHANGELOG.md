@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.3
+- [feature] Provide option to not hide empty properties #5
+
 ## 0.1.2
 - [fix] verbose console
 
