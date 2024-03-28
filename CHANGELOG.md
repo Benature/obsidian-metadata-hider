@@ -1,5 +1,10 @@
 # Changelog
 
+## dev
+
+## 0.1.4
+- [feature] auto fold table #6
+
 ## 0.1.3
 - [feature] Provide option to not hide empty properties #5
 

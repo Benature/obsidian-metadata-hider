@@ -1,6 +1,7 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce } from 'obsidian';
 
 interface MetadataHiderSettings {
+	autoFold: boolean;
 	hideEmptyEntry: boolean;
 	hideEmptyEntryInSideDock: boolean;
 	propertiesVisible: string;
@@ -10,6 +11,7 @@ interface MetadataHiderSettings {
 }
 
 const DEFAULT_SETTINGS: MetadataHiderSettings = {
+	autoFold: false,
 	hideEmptyEntry: true,
 	hideEmptyEntryInSideDock: false,
 	propertiesVisible: "",
@@ -67,6 +69,15 @@ export default class MetadataHider extends Plugin {
 			}
 
 		});
+
+		this.registerEvent(this.app.workspace.on('file-open', (file) => {
+			if (!this.settings.autoFold) { return; }
+			const metadataElement = document.querySelector('.workspace-leaf.mod-active .metadata-container');
+			if (!metadataElement?.classList.contains('is-collapsed')) {
+				// @ts-ignore
+				this.app.commands.executeCommandById(`editor:toggle-fold-properties`);
+			}
+		}));
 	}
 
 	onunload() {
@@ -259,6 +270,19 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 						this.plugin.debounceUpdateCSS();
 					});
 			})
+
+		new Setting(containerEl)
+			.setName({ en: 'Auto fold properties table', zh: "自动折叠文档属性（元数据）表格", "zh-TW": "自動折疊文檔屬性（元數據）表格" }[lang] as string)
+			.setDesc('Auto fold when opening a note. Specific path/tags are not supported yet.')
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.autoFold)
+					.onChange(async (value) => {
+						this.plugin.settings.autoFold = value;
+						await this.plugin.saveSettings();
+						this.plugin.debounceUpdateCSS();
+					});
+			});
 
 
 		let noteEl = containerEl.createEl("p", {
