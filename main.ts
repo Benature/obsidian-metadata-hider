@@ -1,24 +1,40 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce } from 'obsidian';
 
+interface entryHideSettings {
+	tableInactive: boolean; // hide in .mod-root when .metadata-container is inactive
+	tableActive: boolean;   // hide in .mod-root when .metadata-container is active
+	fileProperties: boolean;
+	allProperties: boolean;
+}
+interface entrySettings {
+	name: string;
+	hide: entryHideSettings;
+}
 interface MetadataHiderSettings {
 	autoFold: boolean;
 	hideEmptyEntry: boolean;
 	hideEmptyEntryInSideDock: boolean;
+	// hidePropertiesInvisibleInAllProperties: boolean;
 	propertiesVisible: string;
 	propertiesInvisible: string;
 	propertiesInvisibleAlways: string;
 	propertyHideAll: string;
+	entries: entrySettings[];
 }
 
 const DEFAULT_SETTINGS: MetadataHiderSettings = {
 	autoFold: false,
 	hideEmptyEntry: true,
 	hideEmptyEntryInSideDock: false,
+	// hidePropertiesInvisibleInAllProperties: false,
 	propertiesVisible: "",
 	propertiesInvisible: "",
 	propertiesInvisibleAlways: "",
 	propertyHideAll: "hide",
+	entries: [],
 }
+
+
 
 export default class MetadataHider extends Plugin {
 	settings: MetadataHiderSettings;
@@ -26,11 +42,30 @@ export default class MetadataHider extends Plugin {
 
 	isMetadataFocused: boolean;
 
+	hideInAllProperties() {
+		const metadataElement = document.querySelector('.workspace-leaf-content[data-type="all-properties"] .view-content');
+		if (metadataElement == null) { return; }
+
+		let propertiesInvisible = string2list(this.settings.propertiesInvisible);
+
+		const items = metadataElement.querySelectorAll('.tree-item');
+		items.forEach(item => {
+			const inner = item.querySelector('.tree-item-inner');
+			if (inner && inner.textContent && propertiesInvisible.includes(inner.textContent)) {
+				item.classList.add('mh-hide')
+			}
+		});
+	}
+
+
+
 
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new MetadataHiderSettingTab(this.app, this));
 		this.updateCSS();
+
+		this.hideInAllProperties();
 
 		this.registerDomEvent(document, 'focusin', (evt: MouseEvent) => {
 			// console.log('focusin', evt);
@@ -114,7 +149,13 @@ export default class MetadataHider extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	upgradeSettingsToVersion1() { // upgrade settings from version 0.x to 1.x
 
+	}
+}
+
+function string2list(properties: string): string[] {
+	return properties.replace(/\n|^\s*,|,\s*$/g, "").replace(/,,+/g, ",").split(",").map(p => p.trim());
 }
 
 function genCSS(properties: string, cssPrefix: string, cssSuffix: string, parentSelector: string = ""): string {
@@ -246,6 +287,10 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 						this.plugin.debounceUpdateCSS();
 					})
 			);
+
+
+
+
 		new Setting(containerEl)
 			.setName({ en: "Metadata properties always to hide", zh: "永远隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
 			.setDesc({ en: "Metadata properties will always hide even if their value are not empty or the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
