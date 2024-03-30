@@ -1,4 +1,6 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce, ButtonComponent, ToggleComponent } from 'obsidian';
+import { Locals } from 'src/i18n';
+import { string2list } from 'src/util'
 
 interface entryHideSettings {
 	tableInactive: boolean; // hide in .mod-root when .metadata-container is inactive
@@ -46,13 +48,16 @@ export default class MetadataHider extends Plugin {
 		const metadataElement = document.querySelector('.workspace-leaf-content[data-type="all-properties"] .view-content');
 		if (metadataElement == null) { return; }
 
-		let propertiesInvisible = string2list(this.settings.propertiesInvisible);
+		// let propertiesInvisible = string2list(this.settings.propertiesInvisible);
+		let propertiesInvisible = this.settings.entries.filter(entry => entry.hide.allProperties).map(entry => entry.name);
 
 		const items = metadataElement.querySelectorAll('.tree-item');
 		items.forEach(item => {
 			const inner = item.querySelector('.tree-item-inner');
 			if (inner && inner.textContent && propertiesInvisible.includes(inner.textContent)) {
-				item.classList.add('mh-hide')
+				item.classList.add('mh-hide');
+			} else {
+				item.classList.remove('mh-hide');
 			}
 		});
 	}
@@ -65,7 +70,7 @@ export default class MetadataHider extends Plugin {
 		this.addSettingTab(new MetadataHiderSettingTab(this.app, this));
 		this.updateCSS();
 
-		this.hideInAllProperties();
+
 
 		this.registerDomEvent(document, 'focusin', (evt: MouseEvent) => {
 			// console.log('focusin', evt);
@@ -138,11 +143,14 @@ export default class MetadataHider extends Plugin {
 
 		headElement.appendChild(this.styleTag);
 		this.styleTag.innerText = genAllCSS(this);
+
+		this.hideInAllProperties();
 	}
 
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.upgradeSettingsToVersion1();
 	}
 
 	async saveSettings() {
@@ -150,22 +158,37 @@ export default class MetadataHider extends Plugin {
 	}
 
 	upgradeSettingsToVersion1() { // upgrade settings from version 0.x to 1.x
-
+		if (this.settings.entries.length == 0 &&
+			(this.settings.propertiesInvisible || this.settings.propertiesInvisibleAlways)) {
+			// let entries: entrySettings[] = this.s;
+			const propertiesInvisible = string2list(this.settings.propertiesInvisible);
+			const propertiesInvisibleAlways = string2list(this.settings.propertiesInvisibleAlways);
+			const inter = propertiesInvisible.filter(x => propertiesInvisibleAlways.includes(x))
+			const union = new Set([...propertiesInvisible, ...propertiesInvisibleAlways]);
+			const diff1 = new Set([...union].filter(x => !propertiesInvisible.includes(x)));
+			const diff2 = new Set([...union].filter(x => !propertiesInvisibleAlways.includes(x)));
+			const entries: entrySettings[] = [];
+			for (let key of inter) {
+				entries.push({ name: key, hide: { tableInactive: true, tableActive: true } as unknown as entryHideSettings });
+			}
+			for (let key of diff1) {
+				entries.push({ name: key, hide: { tableInactive: true, tableActive: true } as unknown as entryHideSettings });
+			}
+			for (let key of diff2) {
+				entries.push({ name: key, hide: { tableInactive: true } as unknown as entryHideSettings });
+			}
+			this.settings.entries = entries;
+			this.saveSettings();
+		}
 	}
 }
 
-function string2list(properties: string): string[] {
-	return properties.replace(/\n|^\s*,|,\s*$/g, "").replace(/,,+/g, ",").split(",").map(p => p.trim());
-}
 
-function genCSS(properties: string, cssPrefix: string, cssSuffix: string, parentSelector: string = ""): string {
-	if (properties.trim() === "") {
-		return ``;
-	}
+
+function genCSS(properties: string[], cssPrefix: string, cssSuffix: string, parentSelector: string = ""): string {
 	let body: string[] = [];
 	parentSelector = parentSelector ? parentSelector + " " : "";
-	properties = properties.replace(/\n|^\s*,|,\s*$/g, "").replace(/,,+/g, ",");
-	for (let property of properties.split(',')) {
+	for (let property of properties) {
 		body.push(`${parentSelector}.metadata-container > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${property.trim()}"]`);
 	}
 	const sep = " ";
@@ -203,19 +226,36 @@ function genAllCSS(plugin: MetadataHider): string {
 		].join('\n'));
 	}
 
-	content.push(genCSS(plugin.settings.propertiesInvisible + "," + plugin.settings.propertiesInvisibleAlways, '/* * Custom: invisible */',
-		' { display: none; }'))
-	content.push(genCSS(plugin.settings.propertiesInvisibleAlways, '/* * Custom: always invisible */',
-		' { display: none !important; }', ".workspace-split:not(.mod-sidedock) "))
-	content.push(genCSS(plugin.settings.propertiesVisible, '/* * Custom: Force visible */',
-		' { display: flex; }'))
+	content.push(genCSS(
+		plugin.settings.entries.filter((e: entrySettings) => e.hide.fileProperties).map(e => e.name),
+		'/* * Invisible in file properties */',
+		' { display: none !important; }',
+		`.workspace-leaf-content[data-type="file-properties"] `
+	))
+	content.push(genCSS(
+		plugin.settings.entries.filter((e: entrySettings) => e.hide.tableInactive || e.hide.tableActive).map(e => e.name),
+		'/* * Invisible in properties table (in .mod-root) */',
+		' { display: none; }'
+	))
+	content.push(genCSS(
+		plugin.settings.entries.filter((e: entrySettings) => e.hide.tableActive).map(e => e.name),
+		'/* * Always invisible in properties table (in .mod-root) */',
+		' { display: none !important; }',
+		".workspace-split:not(.mod-sidedock) "
+	))
+
+	content.push(genCSS(
+		string2list(plugin.settings.propertiesVisible),
+		'/* * Always visible */',
+		' { display: flex; }'
+	))
 
 	return content.join(' ')
 }
 
 class MetadataHiderSettingTab extends PluginSettingTab {
 	plugin: MetadataHider;
-	debouncedGenerate: Function;
+	// debouncedGenerate: Function;
 
 	constructor(app: App, plugin: MetadataHider) {
 		super(app, plugin);
@@ -230,9 +270,70 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+		const ts = Locals.get().setting;
 		const lang = this.getLang();
 
 		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName({ en: 'Auto fold properties table', zh: "自动折叠文档属性（元数据）表格", "zh-TW": "自動折疊文檔屬性（元數據）表格" }[lang] as string)
+			.setDesc('Auto fold when opening a note.')// Specific path/tags are not supported yet.')
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.autoFold)
+					.onChange(async (value) => {
+						this.plugin.settings.autoFold = value;
+						await this.plugin.saveSettings();
+						this.plugin.debounceUpdateCSS();
+					});
+			});
+
+
+
+
+		new Setting(containerEl)
+			.setName({ en: "Metadata properties that keep displaying", zh: "永远显示的文档属性（元数据）", "zh-TW": "永遠顯示的文件屬性（元數據）" }[lang] as string)
+			.setDesc({ en: "Metadata properties will always display even if their value are empty. Metadata property keys are separated by comma (`,`).", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
+			.addTextArea((text) =>
+				text
+					.setValue(this.plugin.settings.propertiesVisible)
+					.onChange(async (value) => {
+						this.plugin.settings.propertiesVisible = value;
+						await this.plugin.saveSettings();;
+						this.plugin.debounceUpdateCSS();
+					})
+			);
+		// new Setting(containerEl)
+		// 	.setName({ en: "Metadata properties to hide", zh: "隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
+		// 	.setDesc({ en: "Metadata properties will always hide even if their value are not empty, but will display when the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
+		// 	.addTextArea((text) =>
+		// 		text
+		// 			.setValue(this.plugin.settings.propertiesInvisible)
+		// 			.onChange(async (value) => {
+		// 				this.plugin.settings.propertiesInvisible = value;
+		// 				await this.plugin.saveSettings();
+		// 				this.plugin.debounceUpdateCSS();
+		// 			})
+		// 	);
+
+
+
+
+		// new Setting(containerEl)
+		// 	.setName({ en: "Metadata properties always to hide", zh: "永远隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
+		// 	.setDesc({ en: "Metadata properties will always hide even if their value are not empty or the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
+		// 	.addTextArea((text) =>
+		// 		text
+		// 			.setValue(this.plugin.settings.propertiesInvisibleAlways)
+		// 			.onChange(async (value) => {
+		// 				this.plugin.settings.propertiesInvisibleAlways = value;
+		// 				await this.plugin.saveSettings();
+		// 				this.plugin.debounceUpdateCSS();
+		// 			})
+		// 	);
+
+
+		containerEl.createEl("h3", { text: "Hide metadata properties" });
 
 		new Setting(containerEl)
 			.setName({ en: 'Hide empty metadata properties', zh: "隐藏值为空的文档属性（元数据）", "zh-TW": "隱藏空白文件屬性（元數據）" }[lang] as string)
@@ -261,52 +362,10 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 						});
 				});
 		}
-
-
-		new Setting(containerEl)
-			.setName({ en: "Metadata properties that keep displaying", zh: "永远显示的文档属性（元数据）", "zh-TW": "永遠顯示的文件屬性（元數據）" }[lang] as string)
-			.setDesc({ en: "Metadata properties will always display even if their value are empty. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
-			.addTextArea((text) =>
-				text
-					.setValue(this.plugin.settings.propertiesVisible)
-					.onChange(async (value) => {
-						this.plugin.settings.propertiesVisible = value;
-						await this.plugin.saveSettings();;
-						this.plugin.debounceUpdateCSS();
-					})
-			);
-		new Setting(containerEl)
-			.setName({ en: "Metadata properties to hide", zh: "隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
-			.setDesc({ en: "Metadata properties will always hide even if their value are not empty, but will display when the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
-			.addTextArea((text) =>
-				text
-					.setValue(this.plugin.settings.propertiesInvisible)
-					.onChange(async (value) => {
-						this.plugin.settings.propertiesInvisible = value;
-						await this.plugin.saveSettings();
-						this.plugin.debounceUpdateCSS();
-					})
-			);
-
-
-
-
-		new Setting(containerEl)
-			.setName({ en: "Metadata properties always to hide", zh: "永远隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
-			.setDesc({ en: "Metadata properties will always hide even if their value are not empty or the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
-			.addTextArea((text) =>
-				text
-					.setValue(this.plugin.settings.propertiesInvisibleAlways)
-					.onChange(async (value) => {
-						this.plugin.settings.propertiesInvisibleAlways = value;
-						await this.plugin.saveSettings();
-						this.plugin.debounceUpdateCSS();
-					})
-			);
 		new Setting(containerEl)
 			.setName({ en: "Key to hide the whole metadata properties table", zh: "隐藏整个文档属性（元数据）表格", "zh-TW": "隱藏整個文檔屬性（元數據）表格" }[lang] as string)
 			.setDesc({ en: `when its value is true, the whole metadata properties table will be hidden`, zh: `当该属性值为真时`, "zh-TW": `當該屬性值為真時` }[lang] as string)
-			.addSearch((cb) => {
+			.addText((cb) => {
 				cb.setPlaceholder({ en: "entry name", zh: "文档属性名称", "zh-TW": "文件屬性名稱", }[lang] as string)
 					.setValue(this.plugin.settings.propertyHideAll)
 					.onChange(async (newValue) => {
@@ -316,23 +375,87 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 					});
 			})
 
+
 		new Setting(containerEl)
-			.setName({ en: 'Auto fold properties table', zh: "自动折叠文档属性（元数据）表格", "zh-TW": "自動折疊文檔屬性（元數據）表格" }[lang] as string)
-			.setDesc('Auto fold when opening a note. Specific path/tags are not supported yet.')
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.autoFold)
-					.onChange(async (value) => {
-						this.plugin.settings.autoFold = value;
+			.setName("Add Entry to hide")
+			// .setDesc(t.settingAddIconDesc)
+			.addButton((button: ButtonComponent) => {
+				button.setTooltip("Add new icon")
+					.setButtonText("+")
+					.setCta().onClick(async () => {
+						if (this.plugin.settings.entries.filter(e => e.name === "").length > 0) {
+							new Notice(`There is still unnamed entry!`);
+							return;
+						}
+						this.plugin.settings.entries.push({
+							name: "",
+							hide: {
+								tableInactive: true,
+								tableActive: false,
+								fileProperties: false,
+								allProperties: false,
+							}
+						});
 						await this.plugin.saveSettings();
+						this.display();
+					});
+			})
+		this.plugin.settings.entries.forEach((entrySetting, index) => {
+			const s = new Setting(this.containerEl);
+			s.addText((cb) => {
+				cb.setPlaceholder("entry name")
+					.setValue(entrySetting.name)
+					.onChange(async (newValue) => {
+						this.plugin.settings.entries[index].name = newValue.trim();
+						await this.plugin.saveSettings();
+						this.plugin.debounceUpdateCSS();
+					});
+			})
+
+			let toggles: { [key: string]: ToggleComponent } = {};
+
+			for (let key of ["tableInactive", "tableActive", "fileProperties", "allProperties"]) {
+				s.addToggle((toggle) => {
+					toggles[key] = toggle;
+					toggle
+						.setValue(this.plugin.settings.entries[index].hide[key as keyof entryHideSettings])
+						// @ts-ignore
+						.setTooltip(ts.entries.hide[key])
+						.onChange(async (value) => {
+							this.plugin.settings.entries[index].hide[key as keyof entryHideSettings] = value;
+
+							if (key === "tableInactive" && value === false) {
+								this.plugin.settings.entries[index].hide.tableActive = false;
+								toggles["tableActive"].setValue(false);
+							}
+
+							if (key === "tableActive" && value === true) {
+								this.plugin.settings.entries[index].hide.tableInactive = true;
+								toggles["tableInactive"].setValue(true);
+							}
+
+							await this.plugin.saveSettings();
+							this.plugin.debounceUpdateCSS();
+						});
+				});
+			}
+			s.addExtraButton((cb) => {
+				cb.setIcon("cross")
+					.setTooltip("Delete Entry")
+					.onClick(async () => {
+						this.plugin.settings.entries.splice(index, 1);
+						await this.plugin.saveSettings();
+						this.display();
 						this.plugin.debounceUpdateCSS();
 					});
 			});
 
+		});
+
 
 		let noteEl = containerEl.createEl("p", {
 			text: {
-				en: `When the metadata properties table is focused, (i.e. inputting metadata properties), all metadata properties will be displayed, except "Metadata properties always to hide".`,
+				en: `When the metadata properties table is focused, (i.e. inputting metadata properties), all metadata properties will be displayed, except metadata properties that are marked as "Always hide".`,
 				zh: `当文档属性（元数据）表格获得焦点时（即输入元数据），除“永远隐藏的文档属性”外的所有文档属性都将显示。`,
 				"zh-TW": `當文檔屬性（元數據）表格獲得焦點時（即輸入元數據），除「永遠隱藏的文件屬性」外的所有文檔屬性都將顯示。`,
 			}[lang] as string
