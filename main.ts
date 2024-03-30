@@ -159,9 +159,11 @@ export default class MetadataHider extends Plugin {
 
 	upgradeSettingsToVersion1() { // upgrade settings from version 0.x to 1.x
 		if (this.settings.entries.length == 0 &&
+			// @ts-ignore
 			(this.settings.propertiesInvisible || this.settings.propertiesInvisibleAlways)) {
-			// let entries: entrySettings[] = this.s;
+			// @ts-ignore
 			const propertiesInvisible = string2list(this.settings.propertiesInvisible);
+			// @ts-ignore
 			const propertiesInvisibleAlways = string2list(this.settings.propertiesInvisibleAlways);
 			const inter = propertiesInvisible.filter(x => propertiesInvisibleAlways.includes(x))
 			const union = new Set([...propertiesInvisible, ...propertiesInvisibleAlways]);
