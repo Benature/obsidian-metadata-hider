@@ -2,6 +2,10 @@
 
 ## dev
 
+## 1.0.0-b1
+- [feature] support [#4](https://github.com/Benature/obsidian-metadata-hider/issues/4)
+- [update] refactor settings structure
+
 ## 0.1.4
 - [feature] auto fold table #6
 

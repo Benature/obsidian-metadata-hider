@@ -18,8 +18,8 @@ interface MetadataHiderSettings {
 	hideEmptyEntryInSideDock: boolean;
 	// hidePropertiesInvisibleInAllProperties: boolean;
 	propertiesVisible: string;
-	propertiesInvisible: string;
-	propertiesInvisibleAlways: string;
+	// propertiesInvisible: string;
+	// propertiesInvisibleAlways: string;
 	propertyHideAll: string;
 	entries: entrySettings[];
 }
@@ -30,8 +30,8 @@ const DEFAULT_SETTINGS: MetadataHiderSettings = {
 	hideEmptyEntryInSideDock: false,
 	// hidePropertiesInvisibleInAllProperties: false,
 	propertiesVisible: "",
-	propertiesInvisible: "",
-	propertiesInvisibleAlways: "",
+	// propertiesInvisible: "",
+	// propertiesInvisibleAlways: "",
 	propertyHideAll: "hide",
 	entries: [],
 }
