@@ -1,8 +1,14 @@
 # Metadata Hider
 
+<div align="center">
+
 ![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&label=downloads&query=%24%5B%22metadata-hider%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json) ![GitHub stars](https://img.shields.io/github/stars/Benature/obsidian-metadata-hider?style=flat) ![latest download](https://img.shields.io/github/downloads/Benature/obsidian-metadata-hider/latest/total?style=plastic) 
 
+[![Github release](https://img.shields.io/github/manifest-json/v/Benature/obsidian-metadata-hider?color=blue)](https://github.com/Benature/obsidian-metadata-hider/releases/latest) ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Benature/obsidian-metadata-hider?include_prereleases&label=BRAT%20beta)
+
 [Click to install](https://obsidian.md/plugins?id=metadata-hider)
+
+</div>
 
 - Hide metadata property if its value is empty.
 - Keep displaying specific metadata properties even if they are empty.
