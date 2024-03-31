@@ -12,7 +12,7 @@
 
 - Hide metadata property if its value is empty.
 - Keep displaying specific metadata properties even if they are empty.
-- Keep hiding specific metadata properties even if they are not empty.
+- Keep hiding specific metadata properties even if they are not empty in properties table / file properties (side dock) / all properties (side dock).
 - Show all metadata properties when inputting metadata properties, except specific properties that are set to always hidden.
 
 <!-- This plugin will automatically generate a css file in `./obsidian/snippets`, which helps you to hide specific metadata properties. -->
