@@ -16,7 +16,6 @@ interface MetadataHiderSettings {
 	autoFold: boolean;
 	hideEmptyEntry: boolean;
 	hideEmptyEntryInSideDock: boolean;
-	// hidePropertiesInvisibleInAllProperties: boolean;
 	propertiesVisible: string;
 	// propertiesInvisible: string;
 	// propertiesInvisibleAlways: string;
@@ -28,7 +27,6 @@ const DEFAULT_SETTINGS: MetadataHiderSettings = {
 	autoFold: false,
 	hideEmptyEntry: true,
 	hideEmptyEntryInSideDock: false,
-	// hidePropertiesInvisibleInAllProperties: false,
 	propertiesVisible: "",
 	// propertiesInvisible: "",
 	// propertiesInvisibleAlways: "",
@@ -63,13 +61,13 @@ export default class MetadataHider extends Plugin {
 	}
 
 
-
-
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new MetadataHiderSettingTab(this.app, this));
-		this.updateCSS();
-
+		setTimeout(() => {
+			// wait to the .all-properties is loaded
+			this.updateCSS();
+		}, 1000);
 
 
 		this.registerDomEvent(document, 'focusin', (evt: MouseEvent) => {
@@ -278,8 +276,8 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName({ en: 'Auto fold properties table', zh: "自动折叠文档属性（元数据）表格", "zh-TW": "自動折疊文檔屬性（元數據）表格" }[lang] as string)
-			.setDesc('Auto fold when opening a note.')// Specific path/tags are not supported yet.')
+			.setName(ts.autoFold.name)
+			.setDesc(ts.autoFold.desc)// Specific path/tags are not supported yet.')
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.autoFold)
@@ -335,7 +333,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		// 	);
 
 
-		containerEl.createEl("h3", { text: "Hide metadata properties" });
+		containerEl.createEl("h3", { text: ts.headings.hide });
 
 		new Setting(containerEl)
 			.setName({ en: 'Hide empty metadata properties', zh: "隐藏值为空的文档属性（元数据）", "zh-TW": "隱藏空白文件屬性（元數據）" }[lang] as string)
@@ -378,8 +376,8 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 			})
 
 
-		new Setting(containerEl)
-			.setName("Add Entry to hide")
+		let addEntryButton = new Setting(containerEl)
+			.setName(ts.entries.addEntryToHide)
 			// .setDesc(t.settingAddIconDesc)
 			.addButton((button: ButtonComponent) => {
 				button.setTooltip("Add new icon")
@@ -402,8 +400,15 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 						this.display();
 					});
 			})
+		addEntryButton.descEl.append(
+			createDiv({ text: `${ts.entries.toggle} 1: ${ts.entries.hide.tableInactive}` }),
+			createDiv({ text: `${ts.entries.toggle} 2: ${ts.entries.hide.tableActive}` }),
+			createDiv({ text: `${ts.entries.toggle} 3: ${ts.entries.hide.fileProperties}` }),
+			createDiv({ text: `${ts.entries.toggle} 4: ${ts.entries.hide.allProperties}` }),
+		)
 		this.plugin.settings.entries.forEach((entrySetting, index) => {
 			const s = new Setting(this.containerEl);
+			s.setClass("metadata-hider-setting-entry");
 			s.addText((cb) => {
 				cb.setPlaceholder("entry name")
 					.setValue(entrySetting.name)
@@ -415,7 +420,6 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 			})
 
 			let toggles: { [key: string]: ToggleComponent } = {};
-
 			for (let key of ["tableInactive", "tableActive", "fileProperties", "allProperties"]) {
 				s.addToggle((toggle) => {
 					toggles[key] = toggle;
