@@ -64,11 +64,12 @@ export default class MetadataHider extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new MetadataHiderSettingTab(this.app, this));
-		setTimeout(() => {
-			// wait to the .all-properties is loaded
-			this.updateCSS();
-		}, 1000);
 
+		this.registerEvent(this.app.workspace.on('layout-change', () => {
+			this.app.workspace.onLayoutReady(() => {
+				setTimeout(() => { this.updateCSS(); }, 1000);
+			});
+		}));
 
 		this.registerDomEvent(document, 'focusin', (evt: MouseEvent) => {
 			// console.log('focusin', evt);
