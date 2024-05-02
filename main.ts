@@ -65,9 +65,12 @@ export default class MetadataHider extends Plugin {
 		await this.loadSettings();
 		this.addSettingTab(new MetadataHiderSettingTab(this.app, this));
 
+		this.app.workspace.onLayoutReady(() => {
+			setTimeout(() => { this.updateCSS(); }, 100);
+		});
 		this.registerEvent(this.app.workspace.on('layout-change', () => {
 			this.app.workspace.onLayoutReady(() => {
-				setTimeout(() => { this.updateCSS(); }, 1000);
+				setTimeout(() => { this.hideInAllProperties();; }, 100);
 			});
 		}));
 
