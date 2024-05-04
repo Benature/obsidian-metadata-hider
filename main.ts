@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, debounce, ButtonComponent, ToggleComponent } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting, debounce, ButtonComponent, ToggleComponent } from 'obsidian';
 import { Locals } from 'src/i18n';
 import { string2list } from 'src/util'
 
@@ -68,11 +68,10 @@ export default class MetadataHider extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			setTimeout(() => { this.updateCSS(); }, 100);
 		});
-		this.registerEvent(this.app.workspace.on('layout-change', () => {
-			this.app.workspace.onLayoutReady(() => {
-				setTimeout(() => { this.hideInAllProperties();; }, 100);
-			});
-		}));
+
+		this.app.workspace.on('active-leaf-change', (leaf) => {
+			if (leaf && leaf.view.getViewType() == "all-properties") setTimeout(() => { this.hideInAllProperties(); }, 100);
+		});
 
 		this.registerDomEvent(document, 'focusin', (evt: MouseEvent) => {
 			// console.log('focusin', evt);
