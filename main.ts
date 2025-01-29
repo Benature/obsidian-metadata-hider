@@ -188,11 +188,11 @@ export default class MetadataHider extends Plugin {
 
 
 
-function genCSS(properties: string[], cssPrefix: string, cssSuffix: string, parentSelector: string = ""): string {
+function genCSS(properties: string[], cssPrefix: string, cssSuffix: string, parentSelector: string = "", containerSelector: string = ""): string {
 	let body: string[] = [];
 	parentSelector = parentSelector ? parentSelector + " " : "";
 	for (let property of properties) {
-		body.push(`${parentSelector}.metadata-container > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${property.trim()}"]`);
+		body.push(`${parentSelector}.metadata-container${containerSelector} > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${property.trim()}"]`);
 	}
 	const sep = " ";
 	return cssPrefix + sep + body.join(',' + sep) + sep + cssSuffix + sep + sep;
@@ -236,7 +236,14 @@ function genAllCSS(plugin: MetadataHider): string {
 		`.workspace-leaf-content[data-type="file-properties"] `
 	))
 	content.push(genCSS(
-		plugin.settings.entries.filter((e: entrySettings) => e.hide.tableInactive || e.hide.tableActive).map(e => e.name),
+		plugin.settings.entries.filter((e: entrySettings) => e.hide.tableInactive).map(e => e.name),
+		'/* * Invisible in properties table (in .mod-root) */',
+		' { display: none; }',
+		'',
+		':not(.is-active)'
+	))
+	content.push(genCSS(
+		plugin.settings.entries.filter((e: entrySettings) => e.hide.tableActive).map(e => e.name),
 		'/* * Invisible in properties table (in .mod-root) */',
 		' { display: none; }'
 	))
