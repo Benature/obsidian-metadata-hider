@@ -42,6 +42,7 @@ function makeSettings(overrides = {}) {
 		hideEmptyEntryInSideDock: false,
 		propertiesVisible: '',
 		propertyHideAll: 'hide',
+		hideWholeTableInSideDock: true,
 		entries: [],
 		...overrides,
 	};
@@ -120,6 +121,74 @@ test('#20: all-properties hiding compares keys case-insensitively', () => {
 
 	assert.deepEqual(added, [['camelcase', 'mh-hide']]);
 	assert.deepEqual(removed, [['visible', 'mh-hide']]);
+});
+
+test('#17: existing settings preserve whole-table hiding in the side dock', async () => {
+	const plugin = new MetadataHider({});
+	plugin.loadData = async () => ({});
+	await plugin.loadSettings();
+	assert.equal(plugin.settings.hideWholeTableInSideDock, true);
+});
+
+test('#17: whole-table hiding can be limited to the main editor', () => {
+	const everywhere = makeCSS({ hideWholeTableInSideDock: true });
+	assert.ok(everywhere.includes('.metadata-container:has(.metadata-property[data-property-key="hide"] input[type="checkbox"]:checked)'));
+	assert.ok(!everywhere.includes('.workspace-split:not(.mod-sidedock) .metadata-container:has(.metadata-property[data-property-key="hide"]'));
+
+	const mainOnly = makeCSS({ hideWholeTableInSideDock: false });
+	assert.ok(mainOnly.includes('.workspace-split:not(.mod-sidedock) .metadata-container:has(.metadata-property[data-property-key="hide"] input[type="checkbox"]:checked)'));
+});
+
+test('#14: trailing wildcards generate case-normalized prefix selectors', () => {
+	const css = makeCSS({
+		propertiesVisible: 'Icon-*',
+		entries: [{
+			name: 'Excalidraw-*',
+			hide: { tableInactive: true, tableActive: false, fileProperties: true, allProperties: true },
+		}],
+	});
+
+	assert.ok(css.includes('[data-property-key^="excalidraw-"]'));
+	assert.ok(css.includes('[data-property-key^="icon-"]'));
+	assert.ok(!css.includes('[data-property-key="excalidraw-*"]'));
+});
+
+test('#14: all-properties hiding supports prefix wildcards', () => {
+	const added = [];
+	const removed = [];
+	const makeItem = (textContent) => ({
+		querySelector: () => ({ textContent }),
+		classList: {
+			add: (name) => added.push(textContent),
+			remove: (name) => removed.push(textContent),
+		},
+	});
+	const items = [
+		makeItem('excalidraw-plugin'),
+		makeItem('Excalidraw-Export'),
+		makeItem('excalidraw'),
+		makeItem('visible'),
+	];
+	const originalDocument = global.document;
+	global.document = {
+		querySelector: () => ({ querySelectorAll: () => items }),
+	};
+
+	try {
+		const plugin = new MetadataHider({});
+		plugin.settings = makeSettings({
+			entries: [{
+				name: 'Excalidraw-*',
+				hide: { tableInactive: false, tableActive: false, fileProperties: false, allProperties: true },
+			}],
+		});
+		plugin.hideInAllProperties();
+	} finally {
+		global.document = originalDocument;
+	}
+
+	assert.deepEqual(added, ['excalidraw-plugin', 'Excalidraw-Export']);
+	assert.deepEqual(removed, ['excalidraw', 'visible']);
 });
 
 test('PR #16: inactive hiding does not hide ordinary entries in an active editor', () => {

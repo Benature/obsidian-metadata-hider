@@ -20,6 +20,7 @@ interface MetadataHiderSettings {
 	// propertiesInvisible: string;
 	// propertiesInvisibleAlways: string;
 	propertyHideAll: string;
+	hideWholeTableInSideDock: boolean;
 	entries: entrySettings[];
 }
 
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS: MetadataHiderSettings = {
 	// propertiesInvisible: "",
 	// propertiesInvisibleAlways: "",
 	propertyHideAll: "hide",
+	hideWholeTableInSideDock: true,
 	entries: [],
 }
 
@@ -53,7 +55,7 @@ export default class MetadataHider extends Plugin {
 		const items = metadataElement.querySelectorAll('.tree-item');
 		items.forEach(item => {
 			const inner = item.querySelector('.tree-item-inner');
-			if (inner && inner.textContent && propertiesInvisible.includes(normalizePropertyKey(inner.textContent))) {
+			if (inner && inner.textContent && propertiesInvisible.some(property => matchesPropertyKey(property, inner.textContent || ""))) {
 				item.classList.add('mh-hide');
 			} else {
 				item.classList.remove('mh-hide');
@@ -194,11 +196,26 @@ function normalizePropertyKey(property: string): string {
 	return property.trim().toLowerCase();
 }
 
+function matchesPropertyKey(pattern: string, propertyKey: string): boolean {
+	pattern = normalizePropertyKey(pattern);
+	propertyKey = normalizePropertyKey(propertyKey);
+	return pattern.endsWith("*")
+		? propertyKey.startsWith(pattern.slice(0, -1))
+		: propertyKey === pattern;
+}
+
+function propertyKeySelector(property: string): string {
+	const key = normalizePropertyKey(property);
+	const isPrefix = key.endsWith("*");
+	const value = (isPrefix ? key.slice(0, -1) : key).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+	return isPrefix ? `[data-property-key^="${value}"]` : `[data-property-key="${value}"]`;
+}
+
 function genCSS(properties: string[], cssPrefix: string, cssSuffix: string, parentSelector: string = "", containerSelector: string = ""): string {
 	let body: string[] = [];
 	parentSelector = parentSelector ? parentSelector + " " : "";
 	for (let property of properties) {
-		body.push(`${parentSelector}.metadata-container${containerSelector} > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${normalizePropertyKey(property)}"]`);
+		body.push(`${parentSelector}.metadata-container${containerSelector} > .metadata-content > .metadata-properties > .metadata-property${propertyKeySelector(property)}`);
 	}
 	const sep = " ";
 	return cssPrefix + sep + body.join(',' + sep) + sep + cssSuffix + sep + sep;
@@ -227,8 +244,9 @@ export function genAllCSS(plugin: MetadataHider): string {
 	}
 
 	if (s.propertyHideAll.trim()) {
+		const parentSelector = s.hideWholeTableInSideDock ? "" : ".workspace-split:not(.mod-sidedock) ";
 		content.push([
-			`.metadata-container:has(.metadata-property[data-property-key="${normalizePropertyKey(s.propertyHideAll)}"] input[type="checkbox"]:checked) {`,
+			`${parentSelector}.metadata-container:has(.metadata-property[data-property-key="${normalizePropertyKey(s.propertyHideAll)}"] input[type="checkbox"]:checked) {`,
 			`  display: none;`,
 			`}`,
 			``,
@@ -392,6 +410,19 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 			})
 
 
+		new Setting(containerEl)
+			.setName({ en: "Hide the whole table in the side dock", zh: "侧边栏也隐藏整个属性表格", "zh-TW": "側邊欄也隱藏整個屬性表格" }[lang] as string)
+			.setDesc({ en: "Turn off to keep editing properties in the side dock when the main table is hidden.", zh: "关闭后，仅隐藏主编辑区的属性表格，仍可在侧边栏编辑属性。", "zh-TW": "關閉後，僅隱藏主編輯區的屬性表格，仍可在側邊欄編輯屬性。" }[lang] as string)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.hideWholeTableInSideDock)
+					.onChange(async (value) => {
+						this.plugin.settings.hideWholeTableInSideDock = value;
+						await this.plugin.saveSettings();
+						this.plugin.debounceUpdateCSS();
+					});
+			});
+
 		let addEntryButton = new Setting(containerEl)
 			.setName(ts.entries.addEntryToHide)
 			// .setDesc(t.settingAddIconDesc)
@@ -417,6 +448,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 					});
 			})
 		addEntryButton.descEl.append(
+			createDiv({ text: { en: "Use a trailing * to match a property prefix (e.g. excalidraw-*).", zh: "名称末尾的 * 可匹配属性名前缀，例如 excalidraw-*。", "zh-TW": "名稱末尾的 * 可匹配屬性名前綴，例如 excalidraw-*。" }[lang] }),
 			createDiv({ text: `${ts.entries.toggle} 1: ${ts.entries.hide.tableInactive}` }),
 			createDiv({ text: `${ts.entries.toggle} 2: ${ts.entries.hide.tableActive}` }),
 			createDiv({ text: `${ts.entries.toggle} 3: ${ts.entries.hide.fileProperties}` }),

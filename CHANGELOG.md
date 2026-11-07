@@ -8,6 +8,8 @@
 - [fix] Respect active and inactive property-table states ([#16](https://github.com/Benature/obsidian-metadata-hider/pull/16))
 
 ## dev
+- [feature] Allow whole-table hiding to leave the side dock editor available ([#17](https://github.com/Benature/obsidian-metadata-hider/issues/17))
+- [feature] Support property-prefix matching with a trailing `*` ([#14](https://github.com/Benature/obsidian-metadata-hider/issues/14))
 
 ## 1.0.0-b1
 - [feature] support [#4](https://github.com/Benature/obsidian-metadata-hider/issues/4)

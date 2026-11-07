@@ -21,6 +21,9 @@
 
 Open `Settings` > `Community Plugins` > `Metadata Hider` to set which metadata properties to hide or always show.
 
+- Use a trailing `*` to match a property prefix, such as `excalidraw-*`, `icon-*`, or `banner-*`.
+- When using the key that hides the whole properties table, disable **Hide the whole table in the side dock** to keep the sidebar property editor available.
+
 ## Install
 
 ## Install from community plugins
