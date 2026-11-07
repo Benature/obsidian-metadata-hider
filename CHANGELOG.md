@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+- [fix] Prevent empty-property CSS from breaking Bases ([#19](https://github.com/Benature/obsidian-metadata-hider/issues/19))
+- [fix] Keep configured number properties visible when empty ([#13](https://github.com/Benature/obsidian-metadata-hider/issues/13))
+- [fix] Match Obsidian's lowercase property keys ([#20](https://github.com/Benature/obsidian-metadata-hider/issues/20))
+- [fix] Auto-fold the active leaf in additional windows ([#12](https://github.com/Benature/obsidian-metadata-hider/issues/12))
+- [fix] Respect active and inactive property-table states ([#16](https://github.com/Benature/obsidian-metadata-hider/pull/16))
+
 ## dev
 
 ## 1.0.0-b1
