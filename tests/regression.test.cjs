@@ -1,0 +1,197 @@
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+const Module = require('node:module');
+
+class Plugin {
+	constructor(app) {
+		this.app = app;
+	}
+	addSettingTab() { }
+	registerDomEvent() { }
+	registerEvent() { }
+}
+class PluginSettingTab {
+	constructor(app, plugin) {
+		this.app = app;
+		this.plugin = plugin;
+	}
+}
+
+const originalLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+	if (request === 'obsidian') {
+		return {
+			Plugin,
+			PluginSettingTab,
+			Setting: class { },
+			ButtonComponent: class { },
+			ToggleComponent: class { },
+			Notice: class { },
+			debounce: (fn) => fn,
+		};
+	}
+	return originalLoad.call(this, request, parent, isMain);
+};
+const { default: MetadataHider, genAllCSS } = require('../main.js');
+Module._load = originalLoad;
+
+function makeSettings(overrides = {}) {
+	return {
+		autoFold: false,
+		hideEmptyEntry: true,
+		hideEmptyEntryInSideDock: false,
+		propertiesVisible: '',
+		propertyHideAll: 'hide',
+		entries: [],
+		...overrides,
+	};
+}
+
+function makeCSS(overrides = {}) {
+	return genAllCSS({ settings: makeSettings(overrides) });
+}
+
+test('#19: empty-property rules do not affect Bases metadata rows', () => {
+	const css = makeCSS();
+	const emptyRules = css.split('.metadata-container.is-active .metadata-property { display: flex !important; }')[1].split('display: none;')[0];
+	const selectors = emptyRules.split(',').map(selector => selector.trim());
+
+	assert.equal(selectors.length, 4);
+	for (const selector of selectors) {
+		assert.match(selector, /^\.metadata-container \.metadata-property/);
+	}
+	assert.match(css, /\.mod-sidedock \.metadata-container \.metadata-property \{ display: flex !important; \}/);
+	assert.doesNotMatch(css, /\.mod-sidedock \.metadata-property \{ display: flex !important; \}/);
+});
+
+test('#13: always-visible properties override empty-number hiding', () => {
+	const css = makeCSS({ propertiesVisible: 'answer' });
+	assert.match(css, /\/\* \* Always visible \*\/\s+\.metadata-container > \.metadata-content > \.metadata-properties > \.metadata-property\[data-property-key="answer"\]\s+\{ display: flex !important; \}/);
+});
+
+test('#20: generated selectors use Obsidian lowercase property keys', () => {
+	const css = makeCSS({
+		propertiesVisible: 'VisibleKey, snake_case',
+		propertyHideAll: 'HideAll',
+		entries: [{
+			name: ' CamelCase ',
+			hide: { tableInactive: true, tableActive: false, fileProperties: true, allProperties: false },
+		}],
+	});
+
+	for (const key of ['camelcase', 'visiblekey', 'snake_case', 'hideall']) {
+		assert.ok(css.includes(`data-property-key="${key}"`), `missing lowercase key: ${key}`);
+	}
+	for (const key of ['CamelCase', 'VisibleKey', 'HideAll']) {
+		assert.ok(!css.includes(`data-property-key="${key}"`), `retained mixed-case key: ${key}`);
+	}
+});
+
+test('#20: all-properties hiding compares keys case-insensitively', () => {
+	const added = [];
+	const removed = [];
+	const makeItem = (textContent) => ({
+		querySelector: () => ({ textContent }),
+		classList: {
+			add: (name) => added.push([textContent, name]),
+			remove: (name) => removed.push([textContent, name]),
+		},
+	});
+	const items = [makeItem('camelcase'), makeItem('visible')];
+	const originalDocument = global.document;
+	global.document = {
+		querySelector: () => ({
+			querySelectorAll: () => items,
+		}),
+	};
+
+	try {
+		const plugin = new MetadataHider({});
+		plugin.settings = makeSettings({
+			entries: [{
+				name: 'CamelCase',
+				hide: { tableInactive: false, tableActive: false, fileProperties: false, allProperties: true },
+			}],
+		});
+		plugin.hideInAllProperties();
+	} finally {
+		global.document = originalDocument;
+	}
+
+	assert.deepEqual(added, [['camelcase', 'mh-hide']]);
+	assert.deepEqual(removed, [['visible', 'mh-hide']]);
+});
+
+test('PR #16: inactive hiding does not hide ordinary entries in an active editor', () => {
+	const css = makeCSS({
+		hideEmptyEntry: false,
+		entries: [{
+			name: 'private',
+			hide: { tableInactive: true, tableActive: false, fileProperties: false, allProperties: false },
+		}],
+	});
+
+	assert.match(css, /\.metadata-container:not\(\.is-active\) > \.metadata-content > \.metadata-properties > \.metadata-property\[data-property-key="private"\]/);
+	assert.equal(css.split('data-property-key="private"').length - 1, 1);
+});
+
+test('#12: auto-fold checks the active leaf in the current window', async (t) => {
+	const fileOpenCallbacks = [];
+	const executed = [];
+	const workspace = {
+		activeLeaf: null,
+		onLayoutReady() { },
+		on(event, callback) {
+			if (event === 'file-open') fileOpenCallbacks.push(callback);
+		},
+	};
+	const app = {
+		workspace,
+		commands: {
+			executeCommandById: (id) => executed.push(id),
+		},
+	};
+	const originalDocument = global.document;
+	global.document = {
+		querySelector: () => {
+			throw new Error('auto-fold must not query another window through the global document');
+		},
+	};
+	t.after(() => {
+		global.document = originalDocument;
+	});
+
+	const plugin = new MetadataHider(app);
+	plugin.loadSettings = async () => {
+		plugin.settings = makeSettings({ autoFold: true });
+	};
+	await plugin.onload();
+	assert.equal(fileOpenCallbacks.length, 1);
+
+	const makeLeaf = (collapsed) => ({
+		view: {
+			containerEl: {
+				querySelector: (selector) => {
+					assert.equal(selector, '.metadata-container');
+					return {
+						classList: {
+							contains: (name) => name === 'is-collapsed' && collapsed,
+						},
+					};
+				},
+			},
+		},
+	});
+
+	workspace.activeLeaf = makeLeaf(false);
+	fileOpenCallbacks[0]();
+	assert.deepEqual(executed, ['editor:toggle-fold-properties']);
+
+	workspace.activeLeaf = makeLeaf(true);
+	fileOpenCallbacks[0]();
+	assert.equal(executed.length, 1, 'collapsed properties must not be toggled open');
+
+	workspace.activeLeaf = null;
+	fileOpenCallbacks[0]();
+	assert.equal(executed.length, 1, 'missing leaf must be a no-op');
+});

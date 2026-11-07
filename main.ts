@@ -49,10 +49,11 @@ export default class MetadataHider extends Plugin {
 		// let propertiesInvisible = string2list(this.settings.propertiesInvisible);
 		let propertiesInvisible = this.settings.entries.filter(entry => entry.hide.allProperties).map(entry => entry.name);
 
+		propertiesInvisible = propertiesInvisible.map(property => normalizePropertyKey(property));
 		const items = metadataElement.querySelectorAll('.tree-item');
 		items.forEach(item => {
 			const inner = item.querySelector('.tree-item-inner');
-			if (inner && inner.textContent && propertiesInvisible.includes(inner.textContent)) {
+			if (inner && inner.textContent && propertiesInvisible.includes(normalizePropertyKey(inner.textContent))) {
 				item.classList.add('mh-hide');
 			} else {
 				item.classList.remove('mh-hide');
@@ -113,8 +114,9 @@ export default class MetadataHider extends Plugin {
 
 		this.registerEvent(this.app.workspace.on('file-open', (file) => {
 			if (!this.settings.autoFold) { return; }
-			const metadataElement = document.querySelector('.workspace-leaf.mod-active .metadata-container');
-			if (!metadataElement?.classList.contains('is-collapsed')) {
+			const activeLeaf = this.app.workspace.activeLeaf;
+			const metadataElement = activeLeaf?.view.containerEl.querySelector('.metadata-container');
+			if (metadataElement && !metadataElement.classList.contains('is-collapsed')) {
 				// @ts-ignore
 				this.app.commands.executeCommandById(`editor:toggle-fold-properties`);
 			}
@@ -188,28 +190,32 @@ export default class MetadataHider extends Plugin {
 
 
 
+function normalizePropertyKey(property: string): string {
+	return property.trim().toLowerCase();
+}
+
 function genCSS(properties: string[], cssPrefix: string, cssSuffix: string, parentSelector: string = "", containerSelector: string = ""): string {
 	let body: string[] = [];
 	parentSelector = parentSelector ? parentSelector + " " : "";
 	for (let property of properties) {
-		body.push(`${parentSelector}.metadata-container${containerSelector} > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${property.trim()}"]`);
+		body.push(`${parentSelector}.metadata-container${containerSelector} > .metadata-content > .metadata-properties > .metadata-property[data-property-key="${normalizePropertyKey(property)}"]`);
 	}
 	const sep = " ";
 	return cssPrefix + sep + body.join(',' + sep) + sep + cssSuffix + sep + sep;
 }
 
-function genAllCSS(plugin: MetadataHider): string {
+export function genAllCSS(plugin: MetadataHider): string {
 	const s = plugin.settings;
 	let content: string[] = [];
 	if (s.hideEmptyEntry) {
 		content = content.concat([
 			// Show all metadata when it is focused
 			`.metadata-container.is-active .metadata-property { display: flex !important; }`,
-			/* * Hide the metadata that is empty */
-			`.metadata-property:has(.metadata-property-value .mod-truncate:empty),`,
-			`.metadata-property:has(.metadata-property-value input.metadata-input[type="number"]:placeholder-shown),`,
-			`.metadata-property[data-property-type="text"]:has(input[type="date"]),`,
-			`.metadata-property:has(.metadata-property-value .multi-select-container > .multi-select-input:first-child) {`,
+			/* * Hide empty metadata only inside the properties editor, not in Bases */
+			`.metadata-container .metadata-property:has(.metadata-property-value .mod-truncate:empty),`,
+			`.metadata-container .metadata-property:has(.metadata-property-value input.metadata-input[type="number"]:placeholder-shown),`,
+			`.metadata-container .metadata-property[data-property-type="text"]:has(input[type="date"]),`,
+			`.metadata-container .metadata-property:has(.metadata-property-value .multi-select-container > .multi-select-input:first-child) {`,
 			`	display: none;`,
 			`}`,
 		]);
@@ -217,12 +223,12 @@ function genAllCSS(plugin: MetadataHider): string {
 
 
 	if (!s.hideEmptyEntryInSideDock) {
-		content.push(`.mod-sidedock .metadata-property { display: flex !important; }`,)
+		content.push(`.mod-sidedock .metadata-container .metadata-property { display: flex !important; }`)
 	}
 
 	if (s.propertyHideAll.trim()) {
 		content.push([
-			`.metadata-container:has(.metadata-property[data-property-key="${s.propertyHideAll.trim()}"] input[type="checkbox"]:checked) {`,
+			`.metadata-container:has(.metadata-property[data-property-key="${normalizePropertyKey(s.propertyHideAll)}"] input[type="checkbox"]:checked) {`,
 			`  display: none;`,
 			`}`,
 			``,
@@ -257,7 +263,7 @@ function genAllCSS(plugin: MetadataHider): string {
 	content.push(genCSS(
 		string2list(plugin.settings.propertiesVisible),
 		'/* * Always visible */',
-		' { display: flex; }'
+		' { display: flex !important; }'
 	))
 
 	return content.join(' ')
