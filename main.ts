@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting, debounce, ButtonComponent, ToggleComponent } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting, debounce, ButtonComponent, ToggleComponent, WorkspaceLeaf } from 'obsidian';
 import { Locals } from 'src/i18n';
 import { string2list } from 'src/util'
 
@@ -116,13 +116,25 @@ export default class MetadataHider extends Plugin {
 
 		this.registerEvent(this.app.workspace.on('file-open', (file) => {
 			if (!this.settings.autoFold) { return; }
-			const activeLeaf = this.app.workspace.activeLeaf;
-			const metadataElement = activeLeaf?.view.containerEl.querySelector('.metadata-container');
-			if (metadataElement && !metadataElement.classList.contains('is-collapsed')) {
-				// @ts-ignore
-				this.app.commands.executeCommandById(`editor:toggle-fold-properties`);
-			}
+			this.autoFoldProperties(this.app.workspace.activeLeaf);
 		}));
+	}
+
+	autoFoldProperties(leaf: WorkspaceLeaf | null, retriesLeft = 20): void {
+		if (!leaf || this.app.workspace.activeLeaf !== leaf) { return; }
+
+		const metadataElement = leaf.view.containerEl.querySelector('.metadata-container');
+		if (!metadataElement) {
+			if (retriesLeft > 0) {
+				window.setTimeout(() => this.autoFoldProperties(leaf, retriesLeft - 1), 100);
+			}
+			return;
+		}
+
+		if (!metadataElement.classList.contains('is-collapsed')) {
+			// @ts-ignore
+			this.app.commands.executeCommandById(`editor:toggle-fold-properties`);
+		}
 	}
 
 	onunload() {

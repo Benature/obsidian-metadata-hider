@@ -204,6 +204,58 @@ test('PR #16: inactive hiding does not hide ordinary entries in an active editor
 	assert.equal(css.split('data-property-key="private"').length - 1, 1);
 });
 
+test('#8: auto-fold waits for Properties to render in a newly created file', async (t) => {
+	const fileOpenCallbacks = [];
+	const scheduled = [];
+	const executed = [];
+	let metadataReady = false;
+	const metadataElement = {
+		classList: { contains: (name) => name === 'is-collapsed' && false },
+	};
+	const leaf = {
+		view: {
+			containerEl: {
+				querySelector: () => metadataReady ? metadataElement : null,
+			},
+		},
+	};
+	const workspace = {
+		activeLeaf: leaf,
+		onLayoutReady() { },
+		on(event, callback) {
+			if (event === 'file-open') fileOpenCallbacks.push(callback);
+		},
+	};
+	const app = {
+		workspace,
+		commands: { executeCommandById: (id) => executed.push(id) },
+	};
+	const originalWindow = global.window;
+	global.window = {
+		setTimeout(callback, delay) {
+			scheduled.push({ callback, delay });
+			return scheduled.length;
+		},
+	};
+	t.after(() => {
+		global.window = originalWindow;
+	});
+
+	const plugin = new MetadataHider(app);
+	plugin.loadSettings = async () => {
+		plugin.settings = makeSettings({ autoFold: true });
+	};
+	await plugin.onload();
+	fileOpenCallbacks[0]();
+	assert.deepEqual(executed, [], 'Properties is not ready yet');
+	assert.equal(scheduled.length, 1, 'a missing Properties element schedules a retry');
+
+	metadataReady = true;
+	scheduled.shift().callback();
+	assert.deepEqual(executed, ['editor:toggle-fold-properties']);
+	assert.equal(scheduled.length, 0, 'folding stops the retry loop');
+});
+
 test('#12: auto-fold checks the active leaf in the current window', async (t) => {
 	const fileOpenCallbacks = [];
 	const executed = [];
