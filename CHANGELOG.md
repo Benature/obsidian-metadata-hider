@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1
+- [fix] Wait for delayed Properties rendering before auto-folding newly created notes ([#8](https://github.com/Benature/obsidian-metadata-hider/issues/8))
+
 ## 1.0.3
 - [fix] Prevent empty-property CSS from breaking Bases ([#19](https://github.com/Benature/obsidian-metadata-hider/issues/19))
 - [fix] Keep configured number properties visible when empty ([#13](https://github.com/Benature/obsidian-metadata-hider/issues/13))
