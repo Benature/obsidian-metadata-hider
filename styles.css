@@ -3,3 +3,9 @@
 	.tree-item.mh-hide {
 	display: none;
 }
+
+.metadata-hider-note {
+	color: var(--text-muted);
+	font-style: italic;
+	margin-top: 30px;
+}

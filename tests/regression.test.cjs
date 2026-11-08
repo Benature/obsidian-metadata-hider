@@ -99,8 +99,8 @@ test('#20: all-properties hiding compares keys case-insensitively', () => {
 		},
 	});
 	const items = [makeItem('camelcase'), makeItem('visible')];
-	const originalDocument = global.document;
-	global.document = {
+	const originalActiveDocument = global.activeDocument;
+	global.activeDocument = {
 		querySelector: () => ({
 			querySelectorAll: () => items,
 		}),
@@ -116,11 +116,42 @@ test('#20: all-properties hiding compares keys case-insensitively', () => {
 		});
 		plugin.hideInAllProperties();
 	} finally {
-		global.document = originalDocument;
+		global.activeDocument = originalActiveDocument;
 	}
 
 	assert.deepEqual(added, [['camelcase', 'mh-hide']]);
 	assert.deepEqual(removed, [['visible', 'mh-hide']]);
+});
+
+test('community review: CSS is written to a snippet and enabled without a style element', async () => {
+	const writes = [];
+	const enabledSnippets = new Set();
+	let loads = 0;
+	const app = {
+		vault: {
+			configDir: '.obsidian',
+			adapter: {
+				exists: async () => false,
+				mkdir: async () => { },
+				write: async (path, content) => writes.push({ path, content }),
+			},
+		},
+		customCss: {
+			enabledSnippets,
+			requestLoadSnippets: () => { loads += 1; },
+		},
+	};
+	const plugin = new MetadataHider(app);
+	plugin.settings = makeSettings({ propertiesVisible: 'tags' });
+	plugin.hideInAllProperties = () => { };
+
+	await plugin.updateCSS();
+
+	assert.equal(writes.length, 1);
+	assert.equal(writes[0].path, '.obsidian/snippets/metadata-hider-auto-gen.css');
+	assert.ok(writes[0].content.includes('data-property-key="tags"'));
+	assert.ok(enabledSnippets.has('metadata-hider-auto-gen'));
+	assert.equal(loads, 1);
 });
 
 test('#17: existing settings preserve whole-table hiding in the side dock', async () => {
@@ -169,8 +200,8 @@ test('#14: all-properties hiding supports prefix wildcards', () => {
 		makeItem('excalidraw'),
 		makeItem('visible'),
 	];
-	const originalDocument = global.document;
-	global.document = {
+	const originalActiveDocument = global.activeDocument;
+	global.activeDocument = {
 		querySelector: () => ({ querySelectorAll: () => items }),
 	};
 
@@ -184,7 +215,7 @@ test('#14: all-properties hiding supports prefix wildcards', () => {
 		});
 		plugin.hideInAllProperties();
 	} finally {
-		global.document = originalDocument;
+		global.activeDocument = originalActiveDocument;
 	}
 
 	assert.deepEqual(added, ['excalidraw-plugin', 'Excalidraw-Export']);
@@ -212,15 +243,13 @@ test('#8: auto-fold waits for Properties to render in a newly created file', asy
 	const metadataElement = {
 		classList: { contains: (name) => name === 'is-collapsed' && false },
 	};
-	const leaf = {
-		view: {
-			containerEl: {
-				querySelector: () => metadataReady ? metadataElement : null,
-			},
+	const view = {
+		containerEl: {
+			querySelector: () => metadataReady ? metadataElement : null,
 		},
 	};
 	const workspace = {
-		activeLeaf: leaf,
+		getActiveViewOfType: () => view,
 		onLayoutReady() { },
 		on(event, callback) {
 			if (event === 'file-open') fileOpenCallbacks.push(callback);
@@ -231,6 +260,8 @@ test('#8: auto-fold waits for Properties to render in a newly created file', asy
 		commands: { executeCommandById: (id) => executed.push(id) },
 	};
 	const originalWindow = global.window;
+	const originalActiveDocument = global.activeDocument;
+	global.activeDocument = {};
 	global.window = {
 		setTimeout(callback, delay) {
 			scheduled.push({ callback, delay });
@@ -239,13 +270,15 @@ test('#8: auto-fold waits for Properties to render in a newly created file', asy
 	};
 	t.after(() => {
 		global.window = originalWindow;
+		global.activeDocument = originalActiveDocument;
 	});
 
 	const plugin = new MetadataHider(app);
 	plugin.loadSettings = async () => {
 		plugin.settings = makeSettings({ autoFold: true });
 	};
-	await plugin.onload();
+	plugin.onload();
+	await plugin.initialization;
 	fileOpenCallbacks[0]();
 	assert.deepEqual(executed, [], 'Properties is not ready yet');
 	assert.equal(scheduled.length, 1, 'a missing Properties element schedules a retry');
@@ -272,47 +305,46 @@ test('#12: auto-fold checks the active leaf in the current window', async (t) =>
 			executeCommandById: (id) => executed.push(id),
 		},
 	};
-	const originalDocument = global.document;
-	global.document = {
+	const originalActiveDocument = global.activeDocument;
+	global.activeDocument = {
 		querySelector: () => {
 			throw new Error('auto-fold must not query another window through the global document');
 		},
 	};
 	t.after(() => {
-		global.document = originalDocument;
+		global.activeDocument = originalActiveDocument;
 	});
 
 	const plugin = new MetadataHider(app);
 	plugin.loadSettings = async () => {
 		plugin.settings = makeSettings({ autoFold: true });
 	};
-	await plugin.onload();
+	plugin.onload();
+	await plugin.initialization;
 	assert.equal(fileOpenCallbacks.length, 1);
 
-	const makeLeaf = (collapsed) => ({
-		view: {
-			containerEl: {
-				querySelector: (selector) => {
-					assert.equal(selector, '.metadata-container');
-					return {
-						classList: {
-							contains: (name) => name === 'is-collapsed' && collapsed,
-						},
-					};
-				},
+	const makeView = (collapsed) => ({
+		containerEl: {
+			querySelector: (selector) => {
+				assert.equal(selector, '.metadata-container');
+				return {
+					classList: {
+						contains: (name) => name === 'is-collapsed' && collapsed,
+					},
+				};
 			},
 		},
 	});
 
-	workspace.activeLeaf = makeLeaf(false);
+	workspace.getActiveViewOfType = () => makeView(false);
 	fileOpenCallbacks[0]();
 	assert.deepEqual(executed, ['editor:toggle-fold-properties']);
 
-	workspace.activeLeaf = makeLeaf(true);
+	workspace.getActiveViewOfType = () => makeView(true);
 	fileOpenCallbacks[0]();
 	assert.equal(executed.length, 1, 'collapsed properties must not be toggled open');
 
-	workspace.activeLeaf = null;
+	workspace.getActiveViewOfType = () => null;
 	fileOpenCallbacks[0]();
 	assert.equal(executed.length, 1, 'missing leaf must be a no-op');
 });

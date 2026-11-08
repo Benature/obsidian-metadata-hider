@@ -1,3 +1,5 @@
+import { getLanguage } from "obsidian";
+
 const EN = {
 	command: {
 	},
@@ -51,7 +53,7 @@ const ZH = {
 
 export class Locals {
 	static get() {
-		const lang = window.localStorage.getItem("language");
+		const lang = getLanguage();
 		switch (lang?.toLowerCase()) {
 			case "zh":
 				return ZH;

@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting, debounce, ButtonComponent, ToggleComponent, WorkspaceLeaf } from 'obsidian';
+import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, SettingDefinitionItem, debounce, ButtonComponent, ToggleComponent, getLanguage } from 'obsidian';
 import { Locals } from 'src/i18n';
 import { string2list } from 'src/util'
 
@@ -38,14 +38,16 @@ const DEFAULT_SETTINGS: MetadataHiderSettings = {
 
 
 
+const cssFilename = "metadata-hider-auto-gen";
+
 export default class MetadataHider extends Plugin {
 	settings: MetadataHiderSettings;
-	styleTag: HTMLStyleElement;
+	initialization: Promise<void>;
 
 	isMetadataFocused: boolean;
 
 	hideInAllProperties() {
-		const metadataElement = document.querySelector('.workspace-leaf-content[data-type="all-properties"] .view-content');
+		const metadataElement = activeDocument.querySelector('.workspace-leaf-content[data-type="all-properties"] .view-content');
 		if (metadataElement == null) { return; }
 
 		// let propertiesInvisible = string2list(this.settings.propertiesInvisible);
@@ -64,22 +66,26 @@ export default class MetadataHider extends Plugin {
 	}
 
 
-	async onload() {
+	onload(): void {
+		this.initialization = this.initialize();
+	}
+
+	async initialize(): Promise<void> {
 		await this.loadSettings();
 		this.addSettingTab(new MetadataHiderSettingTab(this.app, this));
 
 		this.app.workspace.onLayoutReady(() => {
-			setTimeout(() => { this.updateCSS(); }, 100);
+			window.setTimeout(() => { void this.updateCSS(); }, 100);
 		});
 
 		this.app.workspace.on('active-leaf-change', (leaf) => {
-			if (leaf && leaf.view.getViewType() == "all-properties") setTimeout(() => { this.hideInAllProperties(); }, 100);
+			if (leaf && leaf.view.getViewType() == "all-properties") window.setTimeout(() => { this.hideInAllProperties(); }, 100);
 		});
 
-		this.registerDomEvent(document, 'focusin', (evt: MouseEvent) => {
+		this.registerDomEvent(activeDocument, 'focusin', (evt: MouseEvent) => {
 			// console.log('focusin', evt);
 			const target = evt.target;
-			const metadataElement = document.querySelector('.workspace-leaf.mod-active .metadata-container');
+			const metadataElement = activeDocument.querySelector('.workspace-leaf.mod-active .metadata-container');
 			if (metadataElement === null) { return; }
 			if (metadataElement?.contains(target as Node)) {
 				// console.log(target)
@@ -99,13 +105,13 @@ export default class MetadataHider extends Plugin {
 				metadataElement.classList.remove('is-active');
 			}
 		});
-		this.registerDomEvent(document, 'focusout', (evt: MouseEvent) => {
+		this.registerDomEvent(activeDocument, 'focusout', (evt: MouseEvent) => {
 			// console.log('focusout', evt);
 			const target = evt.target;
-			const metadataElement = document.querySelector('.workspace-leaf.mod-active .metadata-container');
+			const metadataElement = activeDocument.querySelector('.workspace-leaf.mod-active .metadata-container');
 			if (metadataElement?.contains(target as Node)) {
 				this.isMetadataFocused = false;
-				setTimeout(() => {
+				window.setTimeout(() => {
 					if (!this.isMetadataFocused) {
 						metadataElement.classList.remove('is-active');
 					}
@@ -114,19 +120,19 @@ export default class MetadataHider extends Plugin {
 
 		});
 
-		this.registerEvent(this.app.workspace.on('file-open', (file) => {
+		this.registerEvent(this.app.workspace.on('file-open', () => {
 			if (!this.settings.autoFold) { return; }
-			this.autoFoldProperties(this.app.workspace.activeLeaf);
+			this.autoFoldProperties();
 		}));
 	}
 
-	autoFoldProperties(leaf: WorkspaceLeaf | null, retriesLeft = 20): void {
-		if (!leaf || this.app.workspace.activeLeaf !== leaf) { return; }
-
-		const metadataElement = leaf.view.containerEl.querySelector('.metadata-container');
+	autoFoldProperties(retriesLeft = 20): void {
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeView) { return; }
+		const metadataElement = activeView.containerEl.querySelector('.metadata-container');
 		if (!metadataElement) {
 			if (retriesLeft > 0) {
-				window.setTimeout(() => this.autoFoldProperties(leaf, retriesLeft - 1), 100);
+				window.setTimeout(() => this.autoFoldProperties(retriesLeft - 1), 100);
 			}
 			return;
 		}
@@ -138,43 +144,39 @@ export default class MetadataHider extends Plugin {
 	}
 
 	onunload() {
-		const parentElement = this.styleTag.parentElement;
-		if (parentElement) {
-			parentElement.removeChild(this.styleTag);
-		} else {
-			console.error('Parent element not found.');
-		}
+		// @ts-ignore
+		const customCss = this.app.customCss;
+		customCss.enabledSnippets.delete(cssFilename);
+		customCss.requestLoadSnippets();
 	}
 
-	debounceUpdateCSS = debounce(this.updateCSS, 1000, true);
-	updateCSS() {
-		this.styleTag = document.createElement('style');
-		this.styleTag.id = 'css-metadata-hider';
-		// console.log(document.getElementsByTagName('head'))
-		let headElement: HTMLElement = document.getElementsByTagName('head')[0];
-		const existingStyleTag = headElement.querySelector('#' + this.styleTag.id) as HTMLStyleElement | null;
-
-		if (existingStyleTag) {
-			existingStyleTag.parentNode?.removeChild(existingStyleTag);
+	debounceUpdateCSS = debounce(() => { void this.updateCSS(); }, 1000, true);
+	async updateCSS(): Promise<void> {
+		const vault = this.app.vault;
+		const snippetsPath = `${vault.configDir}/snippets`;
+		const path = `${snippetsPath}/${cssFilename}.css`;
+		if (!(await vault.adapter.exists(snippetsPath))) {
+			await vault.adapter.mkdir(snippetsPath);
 		}
-
-		headElement.appendChild(this.styleTag);
-		this.styleTag.innerText = genAllCSS(this);
-
+		await vault.adapter.write(path, genAllCSS(this));
+		// @ts-ignore
+		const customCss = this.app.customCss;
+		customCss.enabledSnippets.add(cssFilename);
+		customCss.requestLoadSnippets();
 		this.hideInAllProperties();
 	}
 
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-		this.upgradeSettingsToVersion1();
+		await this.upgradeSettingsToVersion1();
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
 
-	upgradeSettingsToVersion1() { // upgrade settings from version 0.x to 1.x
+	async upgradeSettingsToVersion1(): Promise<void> { // upgrade settings from version 0.x to 1.x
 		if (this.settings.entries.length == 0 &&
 			// @ts-ignore
 			(this.settings.propertiesInvisible || this.settings.propertiesInvisibleAlways)) {
@@ -187,17 +189,17 @@ export default class MetadataHider extends Plugin {
 			const diff1 = new Set([...union].filter(x => !propertiesInvisible.includes(x)));
 			const diff2 = new Set([...union].filter(x => !propertiesInvisibleAlways.includes(x)));
 			const entries: entrySettings[] = [];
-			for (let key of inter) {
+			for (const key of inter) {
 				entries.push({ name: key, hide: { tableInactive: true, tableActive: true } as unknown as entryHideSettings });
 			}
-			for (let key of diff1) {
+			for (const key of diff1) {
 				entries.push({ name: key, hide: { tableInactive: true, tableActive: true } as unknown as entryHideSettings });
 			}
-			for (let key of diff2) {
+			for (const key of diff2) {
 				entries.push({ name: key, hide: { tableInactive: true } as unknown as entryHideSettings });
 			}
 			this.settings.entries = entries;
-			this.saveSettings();
+			await this.saveSettings();
 		}
 	}
 }
@@ -224,9 +226,9 @@ function propertyKeySelector(property: string): string {
 }
 
 function genCSS(properties: string[], cssPrefix: string, cssSuffix: string, parentSelector: string = "", containerSelector: string = ""): string {
-	let body: string[] = [];
+	const body: string[] = [];
 	parentSelector = parentSelector ? parentSelector + " " : "";
-	for (let property of properties) {
+	for (const property of properties) {
 		body.push(`${parentSelector}.metadata-container${containerSelector} > .metadata-content > .metadata-properties > .metadata-property${propertyKeySelector(property)}`);
 	}
 	const sep = " ";
@@ -309,13 +311,18 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 	}
 
 	getLang(): string {
-		let lang = window.localStorage.getItem('language');
-		if (lang == null || ["en", "zh", "zh-TW"].indexOf(lang) == -1) { lang = "en"; }
-		return lang;
+		const lang = getLanguage();
+		return ["zh", "zh-TW"].includes(lang) ? lang : "en";
 	}
 
-	display(): void {
-		const { containerEl } = this;
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [{
+			name: "Metadata Hider settings",
+			render: (_setting, group) => this.renderSettings(group.listEl),
+		}];
+	}
+
+	renderSettings(containerEl: HTMLElement): void {
 		const ts = Locals.get().setting;
 		const lang = this.getLang();
 
@@ -379,7 +386,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		// 	);
 
 
-		containerEl.createEl("h3", { text: ts.headings.hide });
+		new Setting(containerEl).setName(ts.headings.hide).setHeading();
 
 		new Setting(containerEl)
 			.setName({ en: 'Hide empty metadata properties', zh: "隐藏值为空的文档属性（元数据）", "zh-TW": "隱藏空白文件屬性（元數據）" }[lang] as string)
@@ -391,7 +398,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 						this.plugin.settings.hideEmptyEntry = value;
 						await this.plugin.saveSettings();
 						this.plugin.debounceUpdateCSS();
-						this.display();
+						this.update();
 					});
 			});
 		if (this.plugin.settings.hideEmptyEntry) {
@@ -435,7 +442,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 					});
 			});
 
-		let addEntryButton = new Setting(containerEl)
+		const addEntryButton = new Setting(containerEl)
 			.setName(ts.entries.addEntryToHide)
 			// .setDesc(t.settingAddIconDesc)
 			.addButton((button: ButtonComponent) => {
@@ -456,7 +463,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 							}
 						});
 						await this.plugin.saveSettings();
-						this.display();
+						this.update();
 					});
 			})
 		addEntryButton.descEl.append(
@@ -479,8 +486,8 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 					});
 			})
 
-			let toggles: { [key: string]: ToggleComponent } = {};
-			for (let key of ["tableInactive", "tableActive", "fileProperties", "allProperties"]) {
+			const toggles: { [key: string]: ToggleComponent } = {};
+			for (const key of ["tableInactive", "tableActive", "fileProperties", "allProperties"]) {
 				s.addToggle((toggle) => {
 					toggles[key] = toggle;
 					toggle
@@ -511,7 +518,7 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 					.onClick(async () => {
 						this.plugin.settings.entries.splice(index, 1);
 						await this.plugin.saveSettings();
-						this.display();
+						this.update();
 						this.plugin.debounceUpdateCSS();
 					});
 			});
@@ -519,13 +526,13 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 		});
 
 
-		let noteEl = containerEl.createEl("p", {
+		const noteEl = containerEl.createEl("p", {
 			text: {
 				en: `When the metadata properties table is focused, (i.e. inputting metadata properties), all metadata properties will be displayed, except metadata properties that are marked as "Always hide".`,
 				zh: `当文档属性（元数据）表格获得焦点时（即输入元数据），除“永远隐藏的文档属性”外的所有文档属性都将显示。`,
 				"zh-TW": `當文檔屬性（元數據）表格獲得焦點時（即輸入元數據），除「永遠隱藏的文件屬性」外的所有文檔屬性都將顯示。`,
 			}[lang] as string
 		});
-		noteEl.setAttribute("style", "color: gray; font-style: italic; margin-top: 30px;")
+		noteEl.addClass("metadata-hider-note");
 	}
 }

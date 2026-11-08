@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+- [fix] Resolve all Obsidian community review warnings and load generated CSS through Obsidian snippets
+- [updated] Adopt the declarative settings API and require Obsidian 1.13.0 or later
+- [chore] Update dependencies and release automation with build provenance
+
 ## 1.1.1
 - [fix] Wait for delayed Properties rendering before auto-folding newly created notes ([#8](https://github.com/Benature/obsidian-metadata-hider/issues/8))
 
