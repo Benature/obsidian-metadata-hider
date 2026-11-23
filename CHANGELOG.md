@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1
+- [fix] Restore all settings rows on Obsidian 1.15 by rendering controls in declarative setting definitions ([#22](https://github.com/Benature/obsidian-metadata-hider/pull/22))
+
 ## 1.2.0
 - [fix] Resolve all Obsidian community review warnings and load generated CSS through Obsidian snippets
 - [updated] Adopt the declarative settings API and require Obsidian 1.13.0 or later
