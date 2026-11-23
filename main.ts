@@ -1,4 +1,4 @@
-import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, SettingDefinitionItem, debounce, ButtonComponent, ToggleComponent, getLanguage } from 'obsidian';
+import { App, MarkdownView, Notice, Plugin, PluginSettingTab, SettingDefinition, SettingDefinitionItem, debounce, ButtonComponent, ToggleComponent, getLanguage } from 'obsidian';
 import { Locals } from 'src/i18n';
 import { string2list } from 'src/util'
 
@@ -316,223 +316,233 @@ class MetadataHiderSettingTab extends PluginSettingTab {
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
-		return [{
-			name: "Metadata Hider settings",
-			render: (_setting, group) => this.renderSettings(group.listEl),
-		}];
-	}
-
-	renderSettings(containerEl: HTMLElement): void {
 		const ts = Locals.get().setting;
 		const lang = this.getLang();
 
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName(ts.autoFold.name)
-			.setDesc(ts.autoFold.desc)// Specific path/tags are not supported yet.')
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.autoFold)
-					.onChange(async (value) => {
-						this.plugin.settings.autoFold = value;
-						await this.plugin.saveSettings();
-						this.plugin.debounceUpdateCSS();
+		return [
+			{
+				name: ts.autoFold.name,
+				desc: ts.autoFold.desc,// Specific path/tags are not supported yet.')
+				render: (setting) => {
+					setting.addToggle((toggle) => {
+						toggle
+							.setValue(this.plugin.settings.autoFold)
+							.onChange(async (value) => {
+								this.plugin.settings.autoFold = value;
+								await this.plugin.saveSettings();
+								this.plugin.debounceUpdateCSS();
+							});
 					});
-			});
+				},
+			},
+			{
+				name: { en: "Metadata properties that keep displaying", zh: "永远显示的文档属性（元数据）", "zh-TW": "永遠顯示的文件屬性（元數據）" }[lang] as string,
+				desc: { en: "Metadata properties will always display even if their value are empty. Metadata property keys are separated by comma (`,`).", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string,
+				render: (setting) => {
+					setting.addTextArea((text) =>
+						text
+							.setValue(this.plugin.settings.propertiesVisible)
+							.onChange(async (value) => {
+								this.plugin.settings.propertiesVisible = value;
+								await this.plugin.saveSettings();;
+								this.plugin.debounceUpdateCSS();
+							})
+					);
+				},
+			},
+			// new Setting(containerEl)
+			// 	.setName({ en: "Metadata properties to hide", zh: "隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
+			// 	.setDesc({ en: "Metadata properties will always hide even if their value are not empty, but will display when the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
+			// 	.addTextArea((text) =>
+			// 		text
+			// 			.setValue(this.plugin.settings.propertiesInvisible)
+			// 			.onChange(async (value) => {
+			// 				this.plugin.settings.propertiesInvisible = value;
+			// 				await this.plugin.saveSettings();
+			// 				this.plugin.debounceUpdateCSS();
+			// 			})
+			// 	);
 
 
 
 
-		new Setting(containerEl)
-			.setName({ en: "Metadata properties that keep displaying", zh: "永远显示的文档属性（元数据）", "zh-TW": "永遠顯示的文件屬性（元數據）" }[lang] as string)
-			.setDesc({ en: "Metadata properties will always display even if their value are empty. Metadata property keys are separated by comma (`,`).", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
-			.addTextArea((text) =>
-				text
-					.setValue(this.plugin.settings.propertiesVisible)
-					.onChange(async (value) => {
-						this.plugin.settings.propertiesVisible = value;
-						await this.plugin.saveSettings();;
-						this.plugin.debounceUpdateCSS();
-					})
-			);
-		// new Setting(containerEl)
-		// 	.setName({ en: "Metadata properties to hide", zh: "隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
-		// 	.setDesc({ en: "Metadata properties will always hide even if their value are not empty, but will display when the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
-		// 	.addTextArea((text) =>
-		// 		text
-		// 			.setValue(this.plugin.settings.propertiesInvisible)
-		// 			.onChange(async (value) => {
-		// 				this.plugin.settings.propertiesInvisible = value;
-		// 				await this.plugin.saveSettings();
-		// 				this.plugin.debounceUpdateCSS();
-		// 			})
-		// 	);
+			// new Setting(containerEl)
+			// 	.setName({ en: "Metadata properties always to hide", zh: "永远隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
+			// 	.setDesc({ en: "Metadata properties will always hide even if their value are not empty or the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
+			// 	.addTextArea((text) =>
+			// 		text
+			// 			.setValue(this.plugin.settings.propertiesInvisibleAlways)
+			// 			.onChange(async (value) => {
+			// 				this.plugin.settings.propertiesInvisibleAlways = value;
+			// 				await this.plugin.saveSettings();
+			// 				this.plugin.debounceUpdateCSS();
+			// 			})
+			// 	);
 
 
+			{
+				type: "group",
+				heading: ts.headings.hide,
+				items: [
+					{
+						name: { en: 'Hide empty metadata properties', zh: "隐藏值为空的文档属性（元数据）", "zh-TW": "隱藏空白文件屬性（元數據）" }[lang] as string,
+						render: (setting) => {
+							setting.addToggle((toggle) => {
+								toggle
+									.setValue(this.plugin.settings.hideEmptyEntry)
+									.onChange(async (value) => {
+										this.plugin.settings.hideEmptyEntry = value;
+										await this.plugin.saveSettings();
+										this.plugin.debounceUpdateCSS();
+										this.update();
+									});
+							});
+						},
+					},
+					{
+						name: { en: 'Hide empty metadata properties also in side dock', zh: "侧边栏也隐藏值为空的文档属性（元数据）", "zh-TW": "側邊欄也隱藏空白文件屬性（元數據）" }[lang] as string,
+						visible: () => this.plugin.settings.hideEmptyEntry,
+						render: (setting) => {
+							setting.addToggle((toggle) => {
+								toggle
+									.setValue(this.plugin.settings.hideEmptyEntryInSideDock)
+									.onChange(async (value) => {
+										this.plugin.settings.hideEmptyEntryInSideDock = value;
+										await this.plugin.saveSettings();
+										this.plugin.debounceUpdateCSS();
+									});
+							});
+						},
+					},
+					{
+						name: { en: "Key to hide the whole metadata properties table", zh: "隐藏整个文档属性（元数据）表格", "zh-TW": "隱藏整個文檔屬性（元數據）表格" }[lang] as string,
+						desc: { en: `when its value is true, the whole metadata properties table will be hidden`, zh: `当该属性值为真时`, "zh-TW": `當該屬性值為真時` }[lang] as string,
+						render: (setting) => {
+							setting.addText((cb) => {
+								cb.setPlaceholder({ en: "entry name", zh: "文档属性名称", "zh-TW": "文件屬性名稱", }[lang] as string)
+									.setValue(this.plugin.settings.propertyHideAll)
+									.onChange(async (newValue) => {
+										this.plugin.settings.propertyHideAll = newValue;
+										await this.plugin.saveSettings();
+										this.plugin.debounceUpdateCSS();
+									});
+							});
+						},
+					},
+					{
+						name: { en: "Hide the whole table in the side dock", zh: "侧边栏也隐藏整个属性表格", "zh-TW": "側邊欄也隱藏整個屬性表格" }[lang] as string,
+						desc: { en: "Turn off to keep editing properties in the side dock when the main table is hidden.", zh: "关闭后，仅隐藏主编辑区的属性表格，仍可在侧边栏编辑属性。", "zh-TW": "關閉後，僅隱藏主編輯區的屬性表格，仍可在側邊欄編輯屬性。" }[lang] as string,
+						render: (setting) => {
+							setting.addToggle((toggle) => {
+								toggle
+									.setValue(this.plugin.settings.hideWholeTableInSideDock)
+									.onChange(async (value) => {
+										this.plugin.settings.hideWholeTableInSideDock = value;
+										await this.plugin.saveSettings();
+										this.plugin.debounceUpdateCSS();
+									});
+							});
+						},
+					},
+					{
+						name: ts.entries.addEntryToHide,
+						// .setDesc(t.settingAddIconDesc)
+						render: (setting) => {
+							setting.addButton((button: ButtonComponent) => {
+								button.setTooltip("Add new icon")
+									.setButtonText("+")
+									.setCta().onClick(async () => {
+										if (this.plugin.settings.entries.filter(e => e.name === "").length > 0) {
+											new Notice(`There is still unnamed entry!`);
+											return;
+										}
+										this.plugin.settings.entries.push({
+											name: "",
+											hide: {
+												tableInactive: true,
+												tableActive: false,
+												fileProperties: false,
+												allProperties: false,
+											}
+										});
+										await this.plugin.saveSettings();
+										this.update();
+									});
+							});
+							setting.descEl.append(
+								createDiv({ text: { en: "Use a trailing * to match a property prefix (e.g. excalidraw-*).", zh: "名称末尾的 * 可匹配属性名前缀，例如 excalidraw-*。", "zh-TW": "名稱末尾的 * 可匹配屬性名前綴，例如 excalidraw-*。" }[lang] }),
+								createDiv({ text: `${ts.entries.toggle} 1: ${ts.entries.hide.tableInactive}` }),
+								createDiv({ text: `${ts.entries.toggle} 2: ${ts.entries.hide.tableActive}` }),
+								createDiv({ text: `${ts.entries.toggle} 3: ${ts.entries.hide.fileProperties}` }),
+								createDiv({ text: `${ts.entries.toggle} 4: ${ts.entries.hide.allProperties}` }),
+							);
+						},
+					},
+					...this.plugin.settings.entries.map((entrySetting, index): SettingDefinition => ({
+						name: "",
+						render: (s) => {
+							s.setClass("metadata-hider-setting-entry");
+							s.addText((cb) => {
+								cb.setPlaceholder("entry name")
+									.setValue(entrySetting.name)
+									.onChange(async (newValue) => {
+										this.plugin.settings.entries[index].name = newValue.trim();
+										await this.plugin.saveSettings();
+										this.plugin.debounceUpdateCSS();
+									});
+							})
 
+							const toggles: { [key: string]: ToggleComponent } = {};
+							for (const key of ["tableInactive", "tableActive", "fileProperties", "allProperties"]) {
+								s.addToggle((toggle) => {
+									toggles[key] = toggle;
+									toggle
+										.setValue(this.plugin.settings.entries[index].hide[key as keyof entryHideSettings])
+										// @ts-ignore
+										.setTooltip(ts.entries.hide[key])
+										.onChange(async (value) => {
+											this.plugin.settings.entries[index].hide[key as keyof entryHideSettings] = value;
 
-		// new Setting(containerEl)
-		// 	.setName({ en: "Metadata properties always to hide", zh: "永远隐藏的文档属性（元数据）", "zh-TW": "永遠隱藏的文件屬性（元數據）" }[lang] as string)
-		// 	.setDesc({ en: "Metadata properties will always hide even if their value are not empty or the metadata properties table is focused. Metadata property keys are separated by comma (`,`)", zh: "英文逗号分隔（`,`）。如：“tags, aliases”", "zh-TW": "以逗號分隔（`,`）" }[lang] as string)
-		// 	.addTextArea((text) =>
-		// 		text
-		// 			.setValue(this.plugin.settings.propertiesInvisibleAlways)
-		// 			.onChange(async (value) => {
-		// 				this.plugin.settings.propertiesInvisibleAlways = value;
-		// 				await this.plugin.saveSettings();
-		// 				this.plugin.debounceUpdateCSS();
-		// 			})
-		// 	);
+											if (key === "tableInactive" && value === false) {
+												this.plugin.settings.entries[index].hide.tableActive = false;
+												toggles["tableActive"].setValue(false);
+											}
 
+											if (key === "tableActive" && value === true) {
+												this.plugin.settings.entries[index].hide.tableInactive = true;
+												toggles["tableInactive"].setValue(true);
+											}
 
-		new Setting(containerEl).setName(ts.headings.hide).setHeading();
-
-		new Setting(containerEl)
-			.setName({ en: 'Hide empty metadata properties', zh: "隐藏值为空的文档属性（元数据）", "zh-TW": "隱藏空白文件屬性（元數據）" }[lang] as string)
-			.setDesc('')
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.hideEmptyEntry)
-					.onChange(async (value) => {
-						this.plugin.settings.hideEmptyEntry = value;
-						await this.plugin.saveSettings();
-						this.plugin.debounceUpdateCSS();
-						this.update();
-					});
-			});
-		if (this.plugin.settings.hideEmptyEntry) {
-			new Setting(containerEl)
-				.setName({ en: 'Hide empty metadata properties also in side dock', zh: "侧边栏也隐藏值为空的文档属性（元数据）", "zh-TW": "側邊欄也隱藏空白文件屬性（元數據）" }[lang] as string)
-				.setDesc('')
-				.addToggle((toggle) => {
-					toggle
-						.setValue(this.plugin.settings.hideEmptyEntryInSideDock)
-						.onChange(async (value) => {
-							this.plugin.settings.hideEmptyEntryInSideDock = value;
-							await this.plugin.saveSettings();
-							this.plugin.debounceUpdateCSS();
-						});
-				});
-		}
-		new Setting(containerEl)
-			.setName({ en: "Key to hide the whole metadata properties table", zh: "隐藏整个文档属性（元数据）表格", "zh-TW": "隱藏整個文檔屬性（元數據）表格" }[lang] as string)
-			.setDesc({ en: `when its value is true, the whole metadata properties table will be hidden`, zh: `当该属性值为真时`, "zh-TW": `當該屬性值為真時` }[lang] as string)
-			.addText((cb) => {
-				cb.setPlaceholder({ en: "entry name", zh: "文档属性名称", "zh-TW": "文件屬性名稱", }[lang] as string)
-					.setValue(this.plugin.settings.propertyHideAll)
-					.onChange(async (newValue) => {
-						this.plugin.settings.propertyHideAll = newValue;
-						await this.plugin.saveSettings();
-						this.plugin.debounceUpdateCSS();
-					});
-			})
-
-
-		new Setting(containerEl)
-			.setName({ en: "Hide the whole table in the side dock", zh: "侧边栏也隐藏整个属性表格", "zh-TW": "側邊欄也隱藏整個屬性表格" }[lang] as string)
-			.setDesc({ en: "Turn off to keep editing properties in the side dock when the main table is hidden.", zh: "关闭后，仅隐藏主编辑区的属性表格，仍可在侧边栏编辑属性。", "zh-TW": "關閉後，僅隱藏主編輯區的屬性表格，仍可在側邊欄編輯屬性。" }[lang] as string)
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.hideWholeTableInSideDock)
-					.onChange(async (value) => {
-						this.plugin.settings.hideWholeTableInSideDock = value;
-						await this.plugin.saveSettings();
-						this.plugin.debounceUpdateCSS();
-					});
-			});
-
-		const addEntryButton = new Setting(containerEl)
-			.setName(ts.entries.addEntryToHide)
-			// .setDesc(t.settingAddIconDesc)
-			.addButton((button: ButtonComponent) => {
-				button.setTooltip("Add new icon")
-					.setButtonText("+")
-					.setCta().onClick(async () => {
-						if (this.plugin.settings.entries.filter(e => e.name === "").length > 0) {
-							new Notice(`There is still unnamed entry!`);
-							return;
-						}
-						this.plugin.settings.entries.push({
-							name: "",
-							hide: {
-								tableInactive: true,
-								tableActive: false,
-								fileProperties: false,
-								allProperties: false,
+											await this.plugin.saveSettings();
+											this.plugin.debounceUpdateCSS();
+										});
+								});
 							}
-						});
-						await this.plugin.saveSettings();
-						this.update();
-					});
-			})
-		addEntryButton.descEl.append(
-			createDiv({ text: { en: "Use a trailing * to match a property prefix (e.g. excalidraw-*).", zh: "名称末尾的 * 可匹配属性名前缀，例如 excalidraw-*。", "zh-TW": "名稱末尾的 * 可匹配屬性名前綴，例如 excalidraw-*。" }[lang] }),
-			createDiv({ text: `${ts.entries.toggle} 1: ${ts.entries.hide.tableInactive}` }),
-			createDiv({ text: `${ts.entries.toggle} 2: ${ts.entries.hide.tableActive}` }),
-			createDiv({ text: `${ts.entries.toggle} 3: ${ts.entries.hide.fileProperties}` }),
-			createDiv({ text: `${ts.entries.toggle} 4: ${ts.entries.hide.allProperties}` }),
-		)
-		this.plugin.settings.entries.forEach((entrySetting, index) => {
-			const s = new Setting(this.containerEl);
-			s.setClass("metadata-hider-setting-entry");
-			s.addText((cb) => {
-				cb.setPlaceholder("entry name")
-					.setValue(entrySetting.name)
-					.onChange(async (newValue) => {
-						this.plugin.settings.entries[index].name = newValue.trim();
-						await this.plugin.saveSettings();
-						this.plugin.debounceUpdateCSS();
-					});
-			})
-
-			const toggles: { [key: string]: ToggleComponent } = {};
-			for (const key of ["tableInactive", "tableActive", "fileProperties", "allProperties"]) {
-				s.addToggle((toggle) => {
-					toggles[key] = toggle;
-					toggle
-						.setValue(this.plugin.settings.entries[index].hide[key as keyof entryHideSettings])
-						// @ts-ignore
-						.setTooltip(ts.entries.hide[key])
-						.onChange(async (value) => {
-							this.plugin.settings.entries[index].hide[key as keyof entryHideSettings] = value;
-
-							if (key === "tableInactive" && value === false) {
-								this.plugin.settings.entries[index].hide.tableActive = false;
-								toggles["tableActive"].setValue(false);
-							}
-
-							if (key === "tableActive" && value === true) {
-								this.plugin.settings.entries[index].hide.tableInactive = true;
-								toggles["tableInactive"].setValue(true);
-							}
-
-							await this.plugin.saveSettings();
-							this.plugin.debounceUpdateCSS();
-						});
-				});
-			}
-			s.addExtraButton((cb) => {
-				cb.setIcon("cross")
-					.setTooltip("Delete Entry")
-					.onClick(async () => {
-						this.plugin.settings.entries.splice(index, 1);
-						await this.plugin.saveSettings();
-						this.update();
-						this.plugin.debounceUpdateCSS();
-					});
-			});
-
-		});
-
-
-		const noteEl = containerEl.createEl("p", {
-			text: {
-				en: `When the metadata properties table is focused, (i.e. inputting metadata properties), all metadata properties will be displayed, except metadata properties that are marked as "Always hide".`,
-				zh: `当文档属性（元数据）表格获得焦点时（即输入元数据），除“永远隐藏的文档属性”外的所有文档属性都将显示。`,
-				"zh-TW": `當文檔屬性（元數據）表格獲得焦點時（即輸入元數據），除「永遠隱藏的文件屬性」外的所有文檔屬性都將顯示。`,
-			}[lang] as string
-		});
-		noteEl.addClass("metadata-hider-note");
+							s.addExtraButton((cb) => {
+								cb.setIcon("cross")
+									.setTooltip("Delete Entry")
+									.onClick(async () => {
+										this.plugin.settings.entries.splice(index, 1);
+										await this.plugin.saveSettings();
+										this.update();
+										this.plugin.debounceUpdateCSS();
+									});
+							});
+						},
+					})),
+				],
+			},
+			{
+				name: "",
+				desc: {
+					en: `When the metadata properties table is focused, (i.e. inputting metadata properties), all metadata properties will be displayed, except metadata properties that are marked as "Always hide".`,
+					zh: `当文档属性（元数据）表格获得焦点时（即输入元数据），除“永远隐藏的文档属性”外的所有文档属性都将显示。`,
+					"zh-TW": `當文檔屬性（元數據）表格獲得焦點時（即輸入元數據），除「永遠隱藏的文件屬性」外的所有文檔屬性都將顯示。`,
+				}[lang] as string,
+				render: (setting) => {
+					setting.setClass("metadata-hider-note");
+				},
+			},
+		];
 	}
 }
