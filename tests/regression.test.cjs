@@ -28,6 +28,7 @@ Module._load = function (request, parent, isMain) {
 			ToggleComponent: class { },
 			Notice: class { },
 			debounce: (fn) => fn,
+			getLanguage: () => 'en',
 		};
 	}
 	return originalLoad.call(this, request, parent, isMain);
@@ -347,4 +348,69 @@ test('#12: auto-fold checks the active leaf in the current window', async (t) =>
 	workspace.getActiveViewOfType = () => null;
 	fileOpenCallbacks[0]();
 	assert.equal(executed.length, 1, 'missing leaf must be a no-op');
+});
+
+test('settings tab: every definition renders its controls into its own row', async () => {
+	let tab;
+	const plugin = new MetadataHider({ workspace: { onLayoutReady() { }, on() { } } });
+	plugin.addSettingTab = (settingTab) => { tab = settingTab; };
+	plugin.loadSettings = async () => {
+		plugin.settings = makeSettings({
+			entries: [{
+				name: 'private',
+				hide: { tableInactive: true, tableActive: false, fileProperties: false, allProperties: false },
+			}],
+		});
+	};
+	const originalActiveDocument = global.activeDocument;
+	const originalCreateDiv = global.createDiv;
+	global.activeDocument = {};
+	global.createDiv = () => ({});
+
+	try {
+		plugin.onload();
+		await plugin.initialization;
+
+		const definitions = tab.getSettingDefinitions();
+		// Obsidian reuses rows by position within a group, so the note must not sit after the entry rows:
+		// a newly added entry would take over the note's row together with its class.
+		const hideGroup = definitions.find(item => item.type === 'group');
+		assert.equal(hideGroup.items.some(item => item.desc !== undefined && item.name === ''), false);
+		assert.equal(definitions.at(-1).type, undefined);
+		const rows = definitions.flatMap(item => item.type === 'group' ? item.items : [item]);
+		// Obsidian resets group.listEl to the rows it created, so anything a callback adds there is dropped.
+		const group = {
+			get listEl() { throw new Error('render must not use group.listEl as a container'); },
+		};
+		const component = new Proxy({}, { get: (_target, _name, self) => () => self });
+		const controls = rows.map((row) => {
+			const added = [];
+			const setting = { descEl: { append() { } }, setClass() { return setting; } };
+			for (const method of ['addToggle', 'addText', 'addTextArea', 'addButton', 'addExtraButton']) {
+				setting[method] = (callback) => {
+					added.push(method);
+					callback(component);
+					return setting;
+				};
+			}
+			assert.equal(typeof row.render, 'function', `"${row.name}" has no render callback`);
+			row.render(setting, group);
+			return added;
+		});
+
+		assert.deepEqual(controls, [
+			['addToggle'],
+			['addTextArea'],
+			['addToggle'],
+			['addToggle'],
+			['addText'],
+			['addToggle'],
+			['addButton'],
+			['addText', 'addToggle', 'addToggle', 'addToggle', 'addToggle', 'addExtraButton'],
+			[],
+		]);
+	} finally {
+		global.activeDocument = originalActiveDocument;
+		global.createDiv = originalCreateDiv;
+	}
 });
